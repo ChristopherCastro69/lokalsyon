@@ -1,9 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  useTransition,
+} from "react";
 import { createClient } from "@/lib/supabase/client";
 import LeafletMap, { type LatLng } from "@/components/LeafletMapLazy";
+import CoordLabel from "@/components/brand/CoordLabel";
 import { googleMapsLink, wazeLink } from "@/lib/navigation";
 import { deleteOrder, markDelivered, markPending } from "@/app/actions/orders";
 import {
@@ -22,6 +29,11 @@ type Props = {
 };
 
 type Filter = "pending" | "delivered" | "all";
+
+// Theme-aligned pin colors
+const PIN_PENDING = "#c84a24"; // terracotta
+const PIN_DELIVERED = "#8a8373"; // muted ink
+const PIN_ME = "#0b6b50"; // mangrove
 
 export default function OrdersView({
   sellerId,
@@ -44,59 +56,7 @@ export default function OrdersView({
   const [optimizeError, setOptimizeError] = useState<string | null>(null);
   const [optimizing, setOptimizing] = useState(false);
 
-  const requestMyLocation = useCallback(() => {
-    if (!navigator.geolocation) return;
-    setLocating(true);
-    navigator.geolocation.getCurrentPosition(
-      (p) => {
-        setMyLocation({ lat: p.coords.latitude, lng: p.coords.longitude });
-        setLocating(false);
-      },
-      () => setLocating(false),
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 },
-    );
-  }, []);
-
-  const runOptimize = useCallback(() => {
-    setOptimizeError(null);
-    if (!myLocation) {
-      setOptimizeError("Share your location first (the button above).");
-      return;
-    }
-    setOptimizing(true);
-    (async () => {
-      const result = await optimizePendingOrders(myLocation.lat, myLocation.lng);
-      setOptimizing(false);
-      if (result.ok) {
-        setOptimized(result.stops);
-        setOptimizeSummary({
-          distanceKm: result.totalDistanceKm,
-          durationMinutes: result.totalDurationMinutes,
-        });
-      } else {
-        setOptimizeError(result.message);
-      }
-    })();
-  }, [myLocation]);
-
-  // Clear any optimization when the underlying pending orders change — it's
-  // no longer accurate once a row is added/removed/delivered.
-  useEffect(() => {
-    if (!optimized) return;
-    const pendingIds = new Set(
-      orders.filter((o) => o.status === "pending" && o.lat != null).map((o) => o.id),
-    );
-    const stopIds = new Set(optimized.map((s) => s.orderId));
-    if (
-      pendingIds.size !== stopIds.size ||
-      [...pendingIds].some((id) => !stopIds.has(id))
-    ) {
-      setOptimized(null);
-      setOptimizeSummary(null);
-    }
-  }, [orders, optimized]);
-
-  // Subscribe to realtime changes on orders for this seller.
+  // Realtime subscription to orders for this seller.
   useEffect(() => {
     const supabase = createClient();
     const channel = supabase
@@ -135,10 +95,60 @@ export default function OrdersView({
     };
   }, [sellerId]);
 
+  const requestMyLocation = useCallback(() => {
+    if (!navigator.geolocation) return;
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      (p) => {
+        setMyLocation({ lat: p.coords.latitude, lng: p.coords.longitude });
+        setLocating(false);
+      },
+      () => setLocating(false),
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 },
+    );
+  }, []);
+
+  const runOptimize = useCallback(() => {
+    setOptimizeError(null);
+    if (!myLocation) {
+      setOptimizeError("Share your location first — tap the 📍 button.");
+      return;
+    }
+    setOptimizing(true);
+    (async () => {
+      const result = await optimizePendingOrders(myLocation.lat, myLocation.lng);
+      setOptimizing(false);
+      if (result.ok) {
+        setOptimized(result.stops);
+        setOptimizeSummary({
+          distanceKm: result.totalDistanceKm,
+          durationMinutes: result.totalDurationMinutes,
+        });
+      } else {
+        setOptimizeError(result.message);
+      }
+    })();
+  }, [myLocation]);
+
+  // Clear optimization when underlying pending set changes.
+  useEffect(() => {
+    if (!optimized) return;
+    const pendingIds = new Set(
+      orders.filter((o) => o.status === "pending" && o.lat != null).map((o) => o.id),
+    );
+    const stopIds = new Set(optimized.map((s) => s.orderId));
+    if (
+      pendingIds.size !== stopIds.size ||
+      [...pendingIds].some((id) => !stopIds.has(id))
+    ) {
+      setOptimized(null);
+      setOptimizeSummary(null);
+    }
+  }, [orders, optimized]);
+
   const filtered = useMemo(() => {
     const base = filter === "all" ? orders : orders.filter((o) => o.status === filter);
     if (filter !== "pending" || !optimized) return base;
-
     const stopIndex = new Map(optimized.map((s, i) => [s.orderId, i]));
     return [...base].sort((a, b) => {
       const ai = stopIndex.get(a.id);
@@ -154,16 +164,26 @@ export default function OrdersView({
     const orderNumber = optimized
       ? new Map(optimized.map((s, i) => [s.orderId, i + 1]))
       : null;
-    return filtered
+    const pinArr = filtered
       .filter((o) => o.lat != null && o.lng != null)
       .map((o) => ({
         id: o.id,
         pos: { lat: o.lat!, lng: o.lng! },
         label: `${orderNumber?.get(o.id) ? `${orderNumber.get(o.id)}. ` : ""}${o.customer_name} — ${o.product}`,
-        color: o.status === "delivered" ? "#6b7280" : "#2563eb",
+        color: o.status === "delivered" ? PIN_DELIVERED : PIN_PENDING,
         number: orderNumber?.get(o.id),
       }));
-  }, [filtered, optimized]);
+    if (myLocation) {
+      pinArr.push({
+        id: "me",
+        pos: myLocation,
+        label: "You",
+        color: PIN_ME,
+        number: undefined,
+      });
+    }
+    return pinArr;
+  }, [filtered, optimized, myLocation]);
 
   const counts = useMemo(
     () => ({
@@ -176,11 +196,41 @@ export default function OrdersView({
 
   return (
     <div className="flex flex-col gap-5">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex flex-wrap items-center gap-2">
-          <FilterChip label={`Pending (${counts.pending})`} active={filter === "pending"} onClick={() => setFilter("pending")} />
-          <FilterChip label={`Delivered (${counts.delivered})`} active={filter === "delivered"} onClick={() => setFilter("delivered")} />
-          <FilterChip label={`All (${counts.all})`} active={filter === "all"} onClick={() => setFilter("all")} />
+      {/* Header */}
+      <header className="flex flex-col gap-1">
+        <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-ink-3">
+          §&nbsp;Orders
+        </span>
+        <h1 className="font-display text-[34px] leading-[1.05] tracking-tight text-ink sm:text-[42px]">
+          Today&rsquo;s route.
+        </h1>
+        <p className="text-sm text-ink-2">
+          Pins update live as customers drop their locations. Share your
+          location to optimize a multi-stop run.
+        </p>
+      </header>
+
+      {/* Action bar — filters + tools */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex gap-2 overflow-x-auto pb-1">
+          <FilterChip
+            label={`Pending`}
+            count={counts.pending}
+            active={filter === "pending"}
+            onClick={() => setFilter("pending")}
+          />
+          <FilterChip
+            label={`Delivered`}
+            count={counts.delivered}
+            active={filter === "delivered"}
+            onClick={() => setFilter("delivered")}
+          />
+          <FilterChip
+            label={`All`}
+            count={counts.all}
+            active={filter === "all"}
+            onClick={() => setFilter("all")}
+          />
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <button
@@ -189,23 +239,21 @@ export default function OrdersView({
             disabled={locating}
             className={
               myLocation
-                ? "inline-flex h-8 items-center rounded-full bg-emerald-100 px-3 text-xs font-medium text-emerald-800 hover:bg-emerald-200 disabled:opacity-60 dark:bg-emerald-950 dark:text-emerald-300 dark:hover:bg-emerald-900"
-                : "inline-flex h-8 items-center rounded-full border border-zinc-300 bg-white px-3 text-xs font-medium text-zinc-700 hover:bg-zinc-50 disabled:opacity-60 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                ? "inline-flex h-9 items-center gap-1.5 rounded-pill border border-mangrove/40 bg-mangrove-soft/60 px-3 font-mono text-[11px] uppercase tracking-[0.15em] text-mangrove-2"
+                : "inline-flex h-9 items-center gap-1.5 rounded-pill border border-hair bg-surface px-3 font-mono text-[11px] uppercase tracking-[0.15em] text-ink-2 hover:bg-paper-deep"
             }
-            title={myLocation ? "Refresh location" : "Share my location to pre-fill navigation"}
+            title={myLocation ? "Refresh location" : "Share my location"}
           >
-            {locating
-              ? "Locating…"
-              : myLocation
-                ? "📍 Using my location"
-                : "📍 Share my location"}
+            <span
+              className={`inline-block h-1.5 w-1.5 rounded-full ${myLocation ? "bg-mangrove" : "bg-ink-3"}`}
+            />
+            {locating ? "Locating…" : myLocation ? "Using location" : "Share location"}
           </button>
           <button
             type="button"
             onClick={runOptimize}
             disabled={optimizing || !myLocation}
-            className="inline-flex h-8 items-center rounded-full bg-black px-3 text-xs font-medium text-white hover:bg-zinc-800 disabled:opacity-60 dark:bg-white dark:text-black dark:hover:bg-zinc-200"
-            title={myLocation ? "Order pending stops by shortest route" : "Share your location first"}
+            className="inline-flex h-9 items-center gap-1.5 rounded-pill bg-ink px-3 font-mono text-[11px] uppercase tracking-[0.15em] text-paper hover:bg-mangrove-2 disabled:opacity-50"
           >
             {optimizing ? "Optimizing…" : optimized ? "Re-optimize" : "Optimize route"}
           </button>
@@ -216,7 +264,7 @@ export default function OrdersView({
                 setOptimized(null);
                 setOptimizeSummary(null);
               }}
-              className="text-xs text-zinc-500 hover:text-black dark:hover:text-white"
+              className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink-3 hover:text-ink"
             >
               Clear
             </button>
@@ -225,15 +273,26 @@ export default function OrdersView({
       </div>
 
       {optimizeError ? (
-        <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
+        <p
+          role="alert"
+          className="rounded-field border border-sunfade/40 bg-sunfade/10 px-3 py-2 text-sm text-ink-2"
+        >
           {optimizeError}
         </p>
       ) : null}
+
       {optimizeSummary && optimized ? (
-        <div className="flex flex-wrap items-center gap-3 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-900 dark:border-blue-900 dark:bg-blue-950/40 dark:text-blue-100">
-          <span className="font-medium">Optimized route</span>
-          <span className="text-xs opacity-80">
-            {optimized.length} stops · {optimizeSummary.distanceKm} km · ~
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-card border border-mangrove/30 bg-mangrove-soft/40 px-4 py-3">
+          <div className="flex items-center gap-3">
+            <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-mangrove-2">
+              Optimized
+            </span>
+            <span className="font-display text-lg text-ink">
+              {optimized.length} stops
+            </span>
+          </div>
+          <span className="font-mono text-[11px] text-ink-2">
+            {optimizeSummary.distanceKm} km ·{" "}
             {optimizeSummary.durationMinutes < 60
               ? `${optimizeSummary.durationMinutes} min`
               : `${Math.floor(optimizeSummary.durationMinutes / 60)}h ${optimizeSummary.durationMinutes % 60}m`}
@@ -241,47 +300,60 @@ export default function OrdersView({
         </div>
       ) : null}
 
-      <LeafletMap
-        center={center}
-        zoom={zoom}
-        otherPins={pins}
-        interactive
-        className="h-[360px] w-full rounded-xl border border-zinc-200 dark:border-zinc-800"
-      />
+      {/* Map */}
+      <div className="overflow-hidden rounded-card border border-hair">
+        <LeafletMap
+          center={center}
+          zoom={zoom}
+          otherPins={pins}
+          interactive
+          className="h-[360px] w-full sm:h-[420px]"
+        />
+      </div>
 
+      {/* Order list */}
       {filtered.length === 0 ? (
-        <p className="rounded-lg border border-zinc-200 bg-white p-4 text-sm text-zinc-600 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400">
-          No orders in this view yet.
-        </p>
+        <div className="flex flex-col items-center gap-2 rounded-card border border-dashed border-hair bg-surface/60 py-10 text-center">
+          <span className="font-display text-xl text-ink-2">Nothing here yet.</span>
+          <span className="text-sm text-ink-3">
+            {filter === "pending"
+              ? "Create a new order or wait for pins to come in."
+              : "No orders match this filter."}
+          </span>
+        </div>
       ) : (
         <ul className="flex flex-col gap-3">
-          {filtered.map((order) => (
-            <OrderRow
-              key={order.id}
-              order={order}
-              sellerSlug={sellerSlug}
-              appUrl={appUrl}
-              myLocation={myLocation}
-              disabled={pending}
-              onMarkDelivered={() =>
-                startTransition(async () => {
-                  await markDelivered(order.id);
-                })
-              }
-              onMarkPending={() =>
-                startTransition(async () => {
-                  await markPending(order.id);
-                })
-              }
-              onDelete={() =>
-                startTransition(async () => {
-                  if (confirm(`Delete order for ${order.customer_name}?`)) {
-                    await deleteOrder(order.id);
-                  }
-                })
-              }
-            />
-          ))}
+          {filtered.map((order, i) => {
+            const numbered = filter === "pending" && optimized ? i + 1 : null;
+            return (
+              <OrderRow
+                key={order.id}
+                order={order}
+                sellerSlug={sellerSlug}
+                appUrl={appUrl}
+                myLocation={myLocation}
+                stopNumber={numbered}
+                disabled={pending}
+                onMarkDelivered={() =>
+                  startTransition(async () => {
+                    await markDelivered(order.id);
+                  })
+                }
+                onMarkPending={() =>
+                  startTransition(async () => {
+                    await markPending(order.id);
+                  })
+                }
+                onDelete={() =>
+                  startTransition(async () => {
+                    if (confirm(`Delete order for ${order.customer_name}?`)) {
+                      await deleteOrder(order.id);
+                    }
+                  })
+                }
+              />
+            );
+          })}
         </ul>
       )}
     </div>
@@ -290,10 +362,12 @@ export default function OrdersView({
 
 function FilterChip({
   label,
+  count,
   active,
   onClick,
 }: {
   label: string;
+  count: number;
   active: boolean;
   onClick: () => void;
 }) {
@@ -303,11 +377,16 @@ function FilterChip({
       onClick={onClick}
       className={
         active
-          ? "rounded-full bg-black px-3 py-1 text-xs font-medium text-white dark:bg-white dark:text-black"
-          : "rounded-full border border-zinc-300 bg-white px-3 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
+          ? "inline-flex shrink-0 items-center gap-2 rounded-pill bg-ink px-3.5 py-1.5 text-sm font-medium text-paper"
+          : "inline-flex shrink-0 items-center gap-2 rounded-pill border border-hair bg-surface px-3.5 py-1.5 text-sm text-ink-2 hover:bg-paper-deep hover:text-ink"
       }
     >
       {label}
+      <span
+        className={`font-mono text-[11px] ${active ? "opacity-70" : "text-ink-3"}`}
+      >
+        {count}
+      </span>
     </button>
   );
 }
@@ -317,6 +396,7 @@ function OrderRow({
   sellerSlug,
   appUrl,
   myLocation,
+  stopNumber,
   disabled,
   onMarkDelivered,
   onMarkPending,
@@ -326,6 +406,7 @@ function OrderRow({
   sellerSlug: string;
   appUrl: string;
   myLocation: LatLng | null;
+  stopNumber: number | null;
   disabled: boolean;
   onMarkDelivered: () => void;
   onMarkPending: () => void;
@@ -335,36 +416,66 @@ function OrderRow({
   const customerLink = `${appUrl}/s/${sellerSlug}/p/${order.code}`;
 
   return (
-    <li className="flex flex-col gap-3 rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900 sm:flex-row sm:items-start sm:justify-between">
-      <div className="flex flex-col gap-1">
-        <div className="flex items-center gap-2">
-          <span className="font-medium text-black dark:text-zinc-50">
-            {order.customer_name}
-          </span>
-          <StatusBadge status={order.status} />
-        </div>
-        <div className="text-sm text-zinc-600 dark:text-zinc-400">
-          {order.product}
-        </div>
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-zinc-500">
-          <span>
-            Created {new Date(order.created_at).toLocaleString()}
-          </span>
-          {order.submitted_at ? (
-            <span>• Location submitted</span>
-          ) : (
-            <span>• Awaiting location</span>
-          )}
-          {order.phone ? <span>• {order.phone}</span> : null}
-        </div>
-        {order.notes ? (
-          <div className="mt-1 rounded-lg bg-zinc-50 px-3 py-1.5 text-xs text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
-            &ldquo;{order.notes}&rdquo;
+    <li className="flex flex-col gap-3 rounded-card border border-hair bg-surface p-4 sm:p-5">
+      {/* Row 1: name + status + stop number */}
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex min-w-0 items-start gap-3">
+          {stopNumber ? (
+            <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-ink font-mono text-sm font-medium text-paper">
+              {stopNumber}
+            </span>
+          ) : null}
+          <div className="flex min-w-0 flex-col gap-0.5">
+            <div className="flex items-center gap-2">
+              <span className="truncate font-display text-lg leading-tight text-ink">
+                {order.customer_name}
+              </span>
+              <StatusDot status={order.status} />
+            </div>
+            <div className="truncate text-sm text-ink-2">{order.product}</div>
           </div>
-        ) : null}
+        </div>
+        <button
+          type="button"
+          onClick={onDelete}
+          disabled={disabled}
+          aria-label="Delete order"
+          title="Delete order"
+          className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-ink-3 hover:bg-paper-deep hover:text-brick"
+        >
+          ✕
+        </button>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+      {/* Row 2: metadata */}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px]">
+        <span className="rounded-pill border border-hair bg-paper px-2 py-0.5 font-mono text-ink-2">
+          {order.code}
+        </span>
+        {order.phone ? (
+          <a
+            href={`tel:${order.phone}`}
+            className="font-mono text-ink-2 underline-offset-2 hover:underline"
+          >
+            {order.phone}
+          </a>
+        ) : null}
+        {hasLocation ? (
+          <CoordLabel lat={order.lat!} lng={order.lng!} />
+        ) : null}
+        <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink-3">
+          {order.submitted_at ? "Pin set" : "Awaiting pin"}
+        </span>
+      </div>
+
+      {order.notes ? (
+        <p className="rounded-field border border-hair bg-paper px-3 py-1.5 text-sm italic text-ink-2">
+          &ldquo;{order.notes}&rdquo;
+        </p>
+      ) : null}
+
+      {/* Row 3: actions */}
+      <div className="flex flex-wrap items-center gap-2 pt-1">
         {!order.submitted_at ? (
           <CopyLinkButton link={customerLink} />
         ) : null}
@@ -372,15 +483,15 @@ function OrderRow({
           <>
             <Link
               href={`/admin/orders/${order.id}/route`}
-              className="inline-flex h-8 items-center rounded-full border border-blue-300 bg-blue-50 px-3 text-xs font-medium text-blue-800 hover:bg-blue-100 dark:border-blue-800 dark:bg-blue-950 dark:text-blue-200 dark:hover:bg-blue-900"
+              className="inline-flex h-9 items-center rounded-pill border border-mangrove/40 bg-mangrove-soft/50 px-3 font-mono text-[11px] uppercase tracking-[0.15em] text-mangrove-2 hover:bg-mangrove-soft"
             >
-              Route preview
+              Route
             </Link>
             <a
               href={wazeLink(order.lat!, order.lng!)}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex h-8 items-center rounded-full border border-zinc-300 bg-white px-3 text-xs font-medium text-zinc-800 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:bg-zinc-800"
+              className="inline-flex h-9 items-center rounded-pill border border-hair bg-surface px-3 font-mono text-[11px] uppercase tracking-[0.15em] text-ink-2 hover:bg-paper-deep"
             >
               Waze
             </a>
@@ -388,56 +499,53 @@ function OrderRow({
               href={googleMapsLink(order.lat!, order.lng!, myLocation)}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex h-8 items-center rounded-full border border-zinc-300 bg-white px-3 text-xs font-medium text-zinc-800 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:bg-zinc-800"
+              className="inline-flex h-9 items-center rounded-pill border border-hair bg-surface px-3 font-mono text-[11px] uppercase tracking-[0.15em] text-ink-2 hover:bg-paper-deep"
             >
-              Google Maps
+              Maps
             </a>
           </>
         ) : null}
-        {order.status === "pending" ? (
-          <button
-            type="button"
-            onClick={onMarkDelivered}
-            disabled={disabled}
-            className="inline-flex h-8 items-center rounded-full bg-emerald-600 px-3 text-xs font-medium text-white hover:bg-emerald-700 disabled:opacity-60"
-          >
-            Mark delivered
-          </button>
-        ) : (
-          <button
-            type="button"
-            onClick={onMarkPending}
-            disabled={disabled}
-            className="inline-flex h-8 items-center rounded-full border border-zinc-300 bg-white px-3 text-xs font-medium text-zinc-800 hover:bg-zinc-50 disabled:opacity-60 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
-          >
-            Undo deliver
-          </button>
-        )}
-        <button
-          type="button"
-          onClick={onDelete}
-          disabled={disabled}
-          className="inline-flex h-8 items-center rounded-full px-2 text-xs text-zinc-400 hover:text-red-600 disabled:opacity-60"
-          title="Delete order"
-          aria-label="Delete order"
-        >
-          ✕
-        </button>
+        <div className="ml-auto">
+          {order.status === "pending" ? (
+            <button
+              type="button"
+              onClick={onMarkDelivered}
+              disabled={disabled}
+              className="inline-flex h-9 items-center gap-1 rounded-pill bg-mangrove px-3.5 font-mono text-[11px] uppercase tracking-[0.15em] text-paper hover:bg-mangrove-2 disabled:opacity-50"
+            >
+              Delivered ✓
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={onMarkPending}
+              disabled={disabled}
+              className="inline-flex h-9 items-center rounded-pill border border-hair bg-surface px-3 font-mono text-[11px] uppercase tracking-[0.15em] text-ink-2 hover:bg-paper-deep disabled:opacity-50"
+            >
+              Undo
+            </button>
+          )}
+        </div>
       </div>
     </li>
   );
 }
 
-function StatusBadge({ status }: { status: Order["status"] }) {
-  if (status === "delivered") {
-    return (
-      <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
-        Delivered
-      </span>
-    );
-  }
-  return (
-    <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+function StatusDot({ status }: { status: Order["status"] }) {
+  return status === "delivered" ? (
+    <span
+      className="inline-flex items-center gap-1 rounded-pill bg-mangrove-soft px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.18em] text-mangrove-2"
+      title="Delivered"
+    >
+      <span className="h-1.5 w-1.5 rounded-full bg-mangrove" />
+      Delivered
+    </span>
+  ) : (
+    <span
+      className="inline-flex items-center gap-1 rounded-pill bg-terracotta-soft px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.18em] text-terracotta-2"
+      title="Pending"
+    >
+      <span className="h-1.5 w-1.5 rounded-full bg-terracotta" />
       Pending
     </span>
   );
@@ -457,7 +565,7 @@ function CopyLinkButton({ link }: { link: string }) {
           /* clipboard blocked */
         }
       }}
-      className="inline-flex h-8 items-center rounded-full border border-blue-300 bg-blue-50 px-3 text-xs font-medium text-blue-800 hover:bg-blue-100 dark:border-blue-800 dark:bg-blue-950 dark:text-blue-200 dark:hover:bg-blue-900"
+      className="inline-flex h-9 items-center rounded-pill border border-terracotta/40 bg-terracotta-soft/50 px-3 font-mono text-[11px] uppercase tracking-[0.15em] text-terracotta-2 hover:bg-terracotta-soft"
     >
       {copied ? "Copied" : "Copy link"}
     </button>

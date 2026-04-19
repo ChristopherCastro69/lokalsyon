@@ -20,17 +20,23 @@ export default async function WaitlistPage() {
   return (
     <div className="flex flex-col gap-6">
       <header className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold tracking-tight text-black dark:text-zinc-50">
-          Waitlist
+        <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-ink-3">
+          §&nbsp;Super-admin · Waitlist
+        </span>
+        <h1 className="font-display text-[34px] leading-[1.05] tracking-tight text-ink sm:text-[42px]">
+          Who&rsquo;s knocking?
         </h1>
-        <p className="text-sm text-zinc-600 dark:text-zinc-400">
-          Review signups from the landing page. Approving creates their Supabase
-          auth user with a starter password.
+        <p className="text-sm text-ink-2">
+          Approve a signup and we&rsquo;ll email their starter credentials
+          straight from your Gmail.
         </p>
       </header>
       {error ? (
-        <p className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300">
-          Couldn&rsquo;t load waitlist entries: {error.message}
+        <p
+          role="alert"
+          className="rounded-field border border-brick/40 bg-brick-soft px-3 py-2 text-sm text-brick"
+        >
+          Couldn&rsquo;t load waitlist: {error.message}
         </p>
       ) : (
         <WaitlistReview entries={(entries ?? []) as WaitlistEntry[]} />

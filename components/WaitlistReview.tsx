@@ -18,16 +18,18 @@ export type WaitlistEntry = {
   reviewed_at: string | null;
 };
 
-type Props = {
-  entries: WaitlistEntry[];
-};
-
 type Filter = "pending" | "approved" | "declined" | "all";
 
-export default function WaitlistReview({ entries }: Props) {
+export default function WaitlistReview({
+  entries,
+}: {
+  entries: WaitlistEntry[];
+}) {
   const [filter, setFilter] = useState<Filter>("pending");
   const [pending, startTransition] = useTransition();
-  const [credentials, setCredentials] = useState<Extract<ApproveResult, { ok: true }> | null>(null);
+  const [credentials, setCredentials] = useState<
+    Extract<ApproveResult, { ok: true }> | null
+  >(null);
   const [error, setError] = useState<string | null>(null);
 
   const counts = {
@@ -37,23 +39,22 @@ export default function WaitlistReview({ entries }: Props) {
     all: entries.length,
   };
 
-  const filtered = entries.filter((e) => (filter === "all" ? true : e.status === filter));
+  const filtered = entries.filter((e) =>
+    filter === "all" ? true : e.status === filter,
+  );
 
   function onApprove(id: string, displayName: string) {
     if (
       !confirm(
-        `Approve "${displayName}"?\n\nThis will create their Supabase auth user with a fresh password. You'll see the password once to copy; we won't show it again.`,
+        `Approve "${displayName}"?\n\nThis creates their Supabase user with a fresh password and emails it to them. You'll see the password once — save or copy if needed.`,
       )
     )
       return;
     setError(null);
     startTransition(async () => {
       const result = await approveWaitlist(id);
-      if (result.ok) {
-        setCredentials(result);
-      } else {
-        setError(result.message);
-      }
+      if (result.ok) setCredentials(result);
+      else setError(result.message);
     });
   }
 
@@ -68,69 +69,88 @@ export default function WaitlistReview({ entries }: Props) {
 
   return (
     <div className="flex flex-col gap-5">
-      <div className="flex flex-wrap items-center gap-2">
-        <FilterChip label={`Pending (${counts.pending})`} active={filter === "pending"} onClick={() => setFilter("pending")} />
-        <FilterChip label={`Approved (${counts.approved})`} active={filter === "approved"} onClick={() => setFilter("approved")} />
-        <FilterChip label={`Declined (${counts.declined})`} active={filter === "declined"} onClick={() => setFilter("declined")} />
-        <FilterChip label={`All (${counts.all})`} active={filter === "all"} onClick={() => setFilter("all")} />
+      {/* Filter pills */}
+      <div className="flex gap-2 overflow-x-auto pb-1">
+        <FilterChip label="Pending" count={counts.pending} active={filter === "pending"} onClick={() => setFilter("pending")} />
+        <FilterChip label="Approved" count={counts.approved} active={filter === "approved"} onClick={() => setFilter("approved")} />
+        <FilterChip label="Declined" count={counts.declined} active={filter === "declined"} onClick={() => setFilter("declined")} />
+        <FilterChip label="All" count={counts.all} active={filter === "all"} onClick={() => setFilter("all")} />
       </div>
 
       {error ? (
-        <p className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300">
+        <p
+          role="alert"
+          className="rounded-field border border-brick/40 bg-brick-soft px-3 py-2 text-sm text-brick"
+        >
           {error}
         </p>
       ) : null}
 
       {credentials ? (
-        <CredentialsCard credentials={credentials} onDismiss={() => setCredentials(null)} />
+        <CredentialsCard
+          credentials={credentials}
+          onDismiss={() => setCredentials(null)}
+        />
       ) : null}
 
       {filtered.length === 0 ? (
-        <p className="rounded-lg border border-zinc-200 bg-white p-4 text-sm text-zinc-600 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400">
-          Nothing to review here.
-        </p>
+        <div className="flex flex-col items-center gap-2 rounded-card border border-dashed border-hair bg-surface/60 py-10 text-center">
+          <span className="font-display text-xl text-ink-2">Quiet here.</span>
+          <span className="text-sm text-ink-3">
+            Nothing matches this filter.
+          </span>
+        </div>
       ) : (
         <ul className="flex flex-col gap-3">
           {filtered.map((entry) => (
             <li
               key={entry.id}
-              className="flex flex-col gap-3 rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900 sm:flex-row sm:items-start sm:justify-between"
+              className="flex flex-col gap-3 rounded-card border border-hair bg-surface p-4 sm:p-5"
             >
-              <div className="flex flex-col gap-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="font-medium text-black dark:text-zinc-50">
-                    {entry.display_name}
-                  </span>
-                  <StatusBadge status={entry.status} />
-                </div>
-                <div className="text-sm text-zinc-600 dark:text-zinc-400">
-                  <span className="font-mono text-xs">{entry.email}</span>
-                  {" • "}
-                  <span>{entry.municipality}</span>
-                </div>
-                <div className="text-xs text-zinc-500">
-                  Requested {new Date(entry.created_at).toLocaleString()}
-                  {entry.reviewed_at ? (
-                    <>
-                      {" • Reviewed "}
-                      {new Date(entry.reviewed_at).toLocaleString()}
-                    </>
-                  ) : null}
-                </div>
-                {entry.message ? (
-                  <div className="mt-1 rounded-lg bg-zinc-50 px-3 py-1.5 text-xs text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
-                    &ldquo;{entry.message}&rdquo;
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex min-w-0 flex-col gap-0.5">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="truncate font-display text-lg leading-tight text-ink">
+                      {entry.display_name}
+                    </span>
+                    <StatusDot status={entry.status} />
                   </div>
+                  <div className="truncate text-sm text-ink-2">
+                    {entry.municipality}
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px]">
+                <a
+                  href={`mailto:${entry.email}`}
+                  className="font-mono text-ink-2 underline-offset-2 hover:underline"
+                >
+                  {entry.email}
+                </a>
+                <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink-3">
+                  {new Date(entry.created_at).toLocaleString()}
+                </span>
+                {entry.reviewed_at ? (
+                  <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink-3">
+                    · reviewed {new Date(entry.reviewed_at).toLocaleString()}
+                  </span>
                 ) : null}
               </div>
 
+              {entry.message ? (
+                <p className="rounded-field border border-hair bg-paper px-3 py-1.5 text-sm italic text-ink-2">
+                  &ldquo;{entry.message}&rdquo;
+                </p>
+              ) : null}
+
               {entry.status === "pending" ? (
-                <div className="flex gap-2 sm:justify-end">
+                <div className="flex gap-2">
                   <button
                     type="button"
                     disabled={pending}
                     onClick={() => onApprove(entry.id, entry.display_name)}
-                    className="inline-flex h-8 items-center rounded-full bg-emerald-600 px-3 text-xs font-medium text-white hover:bg-emerald-700 disabled:opacity-60"
+                    className="inline-flex h-9 items-center rounded-pill bg-mangrove px-4 font-mono text-[11px] uppercase tracking-[0.15em] text-paper hover:bg-mangrove-2 disabled:opacity-50"
                   >
                     Approve
                   </button>
@@ -138,7 +158,7 @@ export default function WaitlistReview({ entries }: Props) {
                     type="button"
                     disabled={pending}
                     onClick={() => onDecline(entry.id, entry.display_name)}
-                    className="inline-flex h-8 items-center rounded-full border border-zinc-300 bg-white px-3 text-xs font-medium text-zinc-800 hover:bg-zinc-50 disabled:opacity-60 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+                    className="inline-flex h-9 items-center rounded-pill border border-hair bg-surface px-4 font-mono text-[11px] uppercase tracking-[0.15em] text-ink-2 hover:bg-paper-deep disabled:opacity-50"
                   >
                     Decline
                   </button>
@@ -154,10 +174,12 @@ export default function WaitlistReview({ entries }: Props) {
 
 function FilterChip({
   label,
+  count,
   active,
   onClick,
 }: {
   label: string;
+  count: number;
   active: boolean;
   onClick: () => void;
 }) {
@@ -167,29 +189,44 @@ function FilterChip({
       onClick={onClick}
       className={
         active
-          ? "rounded-full bg-black px-3 py-1 text-xs font-medium text-white dark:bg-white dark:text-black"
-          : "rounded-full border border-zinc-300 bg-white px-3 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
+          ? "inline-flex shrink-0 items-center gap-2 rounded-pill bg-ink px-3.5 py-1.5 text-sm font-medium text-paper"
+          : "inline-flex shrink-0 items-center gap-2 rounded-pill border border-hair bg-surface px-3.5 py-1.5 text-sm text-ink-2 hover:bg-paper-deep hover:text-ink"
       }
     >
       {label}
+      <span
+        className={`font-mono text-[11px] ${active ? "opacity-70" : "text-ink-3"}`}
+      >
+        {count}
+      </span>
     </button>
   );
 }
 
-function StatusBadge({ status }: { status: WaitlistEntry["status"] }) {
-  const cls = {
-    pending:
-      "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300",
-    approved:
-      "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300",
-    declined:
-      "bg-zinc-200 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300",
+function StatusDot({ status }: { status: WaitlistEntry["status"] }) {
+  const conf = {
+    pending: {
+      cls: "bg-terracotta-soft text-terracotta-2",
+      dot: "bg-terracotta",
+      label: "Pending",
+    },
+    approved: {
+      cls: "bg-mangrove-soft text-mangrove-2",
+      dot: "bg-mangrove",
+      label: "Approved",
+    },
+    declined: {
+      cls: "bg-sand-soft text-ink-2",
+      dot: "bg-ink-3",
+      label: "Declined",
+    },
   }[status];
   return (
     <span
-      className={`rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide ${cls}`}
+      className={`inline-flex items-center gap-1 rounded-pill px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.18em] ${conf.cls}`}
     >
-      {status}
+      <span className={`h-1.5 w-1.5 rounded-full ${conf.dot}`} />
+      {conf.label}
     </span>
   );
 }
@@ -216,56 +253,63 @@ function CredentialsCard({
   const both = `Email: ${credentials.email}\nPassword: ${credentials.password}`;
 
   return (
-    <div className="flex flex-col gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-5 text-emerald-900 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-100">
+    <div className="with-crosshairs relative flex flex-col gap-4 border border-mangrove/40 bg-mangrove-soft/40 p-5 sm:p-6">
       <div className="flex items-start justify-between gap-3">
-        <div>
-          <div className="text-sm font-semibold">
-            {credentials.userExisted ? "Password reset" : "Seller approved"}
+        <div className="flex flex-col gap-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="h-2 w-2 rounded-full bg-mangrove" />
+            <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-mangrove-2">
+              {credentials.userExisted ? "Password reset" : "Approved"}
+            </span>
             {credentials.email_sent ? (
-              <span className="ml-2 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200">
+              <span className="rounded-pill bg-mangrove px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.18em] text-paper">
                 Emailed ✓
               </span>
             ) : (
-              <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+              <span className="rounded-pill bg-sunfade/30 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.18em] text-ink-2">
                 Email not sent
               </span>
             )}
           </div>
-          <p className="mt-0.5 text-xs opacity-90">
+          <p className="text-xs text-ink-2">
             {credentials.email_sent
-              ? `Credentials emailed to ${credentials.email}. Show below in case they need help finding it.`
+              ? `Credentials emailed to ${credentials.email}. Visible here once in case you need to re-share.`
               : credentials.email_error
-                ? `Email failed (${credentials.email_error}). Copy and send via Messenger / Viber instead.`
-                : "Gmail isn't configured yet — copy these and send via Messenger / Viber."}
+                ? `Email failed: ${credentials.email_error}. Copy and DM instead.`
+                : "Gmail isn't configured — copy and send via Messenger/Viber."}
           </p>
         </div>
         <button
           type="button"
           onClick={onDismiss}
           aria-label="Dismiss"
-          className="-m-1 rounded p-1 text-emerald-900/70 hover:text-emerald-900 dark:text-emerald-100/70 dark:hover:text-emerald-100"
+          className="-m-1 rounded p-1 text-ink-3 hover:text-ink"
         >
           ✕
         </button>
       </div>
 
-      <div className="grid grid-cols-[auto_1fr_auto] items-center gap-x-3 gap-y-1.5 rounded-lg bg-white/70 p-3 font-mono text-xs text-zinc-800 dark:bg-black/30 dark:text-zinc-100">
-        <span className="opacity-70">Email</span>
+      <div className="grid grid-cols-[auto_1fr_auto] items-center gap-x-3 gap-y-2 rounded-field border border-mangrove/20 bg-paper px-4 py-3 font-mono text-[12px] text-ink">
+        <span className="text-[10px] uppercase tracking-[0.22em] text-ink-3">
+          Email
+        </span>
         <span className="break-all">{credentials.email}</span>
         <button
           type="button"
           onClick={() => copy(credentials.email, "email")}
-          className="text-[10px] font-medium text-blue-600 hover:underline dark:text-blue-400"
+          className="font-mono text-[10px] uppercase tracking-[0.18em] text-mangrove-2 hover:underline"
         >
           {copied === "email" ? "Copied" : "Copy"}
         </button>
 
-        <span className="opacity-70">Password</span>
+        <span className="text-[10px] uppercase tracking-[0.22em] text-ink-3">
+          Password
+        </span>
         <span className="break-all">{credentials.password}</span>
         <button
           type="button"
           onClick={() => copy(credentials.password, "password")}
-          className="text-[10px] font-medium text-blue-600 hover:underline dark:text-blue-400"
+          className="font-mono text-[10px] uppercase tracking-[0.18em] text-mangrove-2 hover:underline"
         >
           {copied === "password" ? "Copied" : "Copy"}
         </button>
@@ -275,9 +319,9 @@ function CredentialsCard({
         <button
           type="button"
           onClick={() => copy(both, "both")}
-          className="inline-flex h-9 items-center rounded-full bg-black px-4 text-xs font-medium text-white hover:bg-zinc-800 dark:bg-white dark:text-black dark:hover:bg-zinc-200"
+          className="inline-flex h-10 items-center rounded-pill bg-ink px-4 text-xs font-medium text-paper hover:bg-mangrove-2"
         >
-          {copied === "both" ? "Copied" : "Copy both"}
+          {copied === "both" ? "Copied both" : "Copy both"}
         </button>
       </div>
     </div>

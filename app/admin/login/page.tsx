@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import LoginForm from "./LoginForm";
 import { createClient } from "@/lib/supabase/server";
+import Wordmark from "@/components/brand/Wordmark";
 
 export default async function LoginPage({
   searchParams,
@@ -10,7 +11,6 @@ export default async function LoginPage({
 }) {
   const { error } = await searchParams;
 
-  // Already signed in? Skip the form.
   if (
     process.env.NEXT_PUBLIC_SUPABASE_URL &&
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
@@ -21,31 +21,42 @@ export default async function LoginPage({
   }
 
   return (
-    <div className="flex flex-1 flex-col items-center justify-center bg-zinc-50 px-6 py-24 dark:bg-black">
-      <div className="w-full max-w-sm flex flex-col gap-8">
-        <Link
-          href="/"
-          className="text-xs font-mono tracking-[0.2em] text-zinc-500 uppercase"
-        >
-          ← Lokalsyon
-        </Link>
-        <header className="flex flex-col gap-2">
-          <h1 className="text-2xl font-semibold tracking-tight text-black dark:text-zinc-50">
-            Sign in
-          </h1>
-          <p className="text-sm text-zinc-600 dark:text-zinc-400">
-            Admin access only.
-          </p>
-        </header>
+    <div className="flex min-h-full flex-1 flex-col">
+      <header className="border-b border-hair/60">
+        <div className="mx-auto flex w-full max-w-md items-center justify-between px-5 py-3">
+          <Link href="/" className="text-ink hover:opacity-80">
+            <Wordmark size="sm" />
+          </Link>
+          <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-ink-3">
+            ← Home
+          </span>
+        </div>
+      </header>
 
-        {error ? (
-          <p className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300">
-            Something went wrong with that sign-in. Please try again.
-          </p>
-        ) : null}
+      <main className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center px-5 py-16">
+        <div className="with-crosshairs relative flex flex-col gap-5 border border-hair bg-surface p-7">
+          <div className="flex flex-col gap-1.5">
+            <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-ink-3">
+              §&nbsp;Sign in
+            </span>
+            <h1 className="font-display text-3xl tracking-tight text-ink">
+              Dispatch access
+            </h1>
+            <p className="text-sm text-ink-2">Admin only.</p>
+          </div>
 
-        <LoginForm />
-      </div>
+          {error ? (
+            <p
+              role="alert"
+              className="rounded-field border border-brick/40 bg-brick-soft px-3 py-2 text-sm text-brick"
+            >
+              Something went wrong with that sign-in. Please try again.
+            </p>
+          ) : null}
+
+          <LoginForm />
+        </div>
+      </main>
     </div>
   );
 }

@@ -6,7 +6,6 @@ import type { Order } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
-// Fallback center if the seller somehow has no default_map_* set.
 const PH_CENTER = { lat: 12.8797, lng: 121.774 };
 
 export default async function OrdersPage() {
@@ -31,23 +30,13 @@ export default async function OrdersPage() {
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
 
   return (
-    <div className="flex flex-col gap-6">
-      <header className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold tracking-tight text-black dark:text-zinc-50">
-          Orders
-        </h1>
-        <p className="text-sm text-zinc-600 dark:text-zinc-400">
-          Pending pins update live as customers drop their location.
-        </p>
-      </header>
-      <OrdersView
-        sellerId={user.seller.id}
-        sellerSlug={user.seller.slug}
-        center={center}
-        zoom={zoom}
-        initialOrders={(orders ?? []) as Order[]}
-        appUrl={appUrl}
-      />
-    </div>
+    <OrdersView
+      sellerId={user.seller.id}
+      sellerSlug={user.seller.slug}
+      center={center}
+      zoom={zoom}
+      initialOrders={(orders ?? []) as Order[]}
+      appUrl={appUrl}
+    />
   );
 }

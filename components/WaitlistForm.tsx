@@ -10,56 +10,80 @@ export default function WaitlistForm() {
 
   if (state.ok) {
     return (
-      <div className="max-w-xl rounded-xl border border-emerald-200 bg-emerald-50 p-6 text-emerald-900 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-100">
-        <div className="font-medium">You're on the list.</div>
-        <p className="mt-1 text-sm opacity-90">{state.message}</p>
+      <div className="with-crosshairs relative flex flex-col gap-3 border border-mangrove/40 bg-mangrove-soft/40 p-6">
+        <div className="flex items-center gap-2">
+          <span className="h-2 w-2 rounded-full bg-mangrove" />
+          <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-mangrove-2">
+            Received
+          </span>
+        </div>
+        <h3 className="font-display text-2xl text-ink">You&rsquo;re on the list.</h3>
+        <p className="text-sm leading-relaxed text-ink-2">{state.message}</p>
       </div>
     );
   }
 
   return (
-    <form action={formAction} className="flex max-w-xl flex-col gap-4">
-      <Field
-        label="Email"
-        name="email"
-        type="email"
-        required
-        autoComplete="email"
-        error={state.fieldErrors?.email}
-      />
-      <Field
-        label="Business / shop name"
-        name="display_name"
-        required
-        placeholder="e.g. Jane &amp; Mark's Boutique"
-        error={state.fieldErrors?.display_name}
-      />
+    <form action={formAction} className="flex flex-col gap-5">
+      <div className="grid gap-5 sm:grid-cols-2">
+        <Field
+          label="Email"
+          name="email"
+          type="email"
+          required
+          autoComplete="email"
+          error={state.fieldErrors?.email}
+        />
+        <Field
+          label="Shop name"
+          name="display_name"
+          required
+          placeholder="Jane &amp; Mark's Boutique"
+          error={state.fieldErrors?.display_name}
+        />
+      </div>
+
       <Field
         label="Municipality"
         name="municipality"
         required
-        placeholder="e.g. San Jose, Batangas"
+        placeholder="San Jose, Batangas"
         error={state.fieldErrors?.municipality}
       />
       <TextareaField
-        label="Anything else? (optional)"
+        label="Anything else?"
+        optional
         name="message"
-        placeholder="What do you sell, how many deliveries a week, etc."
+        placeholder="What do you sell, how many deliveries a week?"
         error={state.fieldErrors?.message}
       />
 
       {state.message && !state.ok ? (
-        <p className="text-sm text-red-600 dark:text-red-400">{state.message}</p>
+        <p
+          role="alert"
+          className="rounded-field border border-brick/40 bg-brick-soft px-3 py-2 text-sm text-brick"
+        >
+          {state.message}
+        </p>
       ) : null}
 
-      <div>
+      <div className="flex flex-wrap items-center gap-4 pt-1">
         <button
           type="submit"
           disabled={pending}
-          className="inline-flex h-11 items-center justify-center rounded-full bg-black px-6 text-sm font-medium text-white transition hover:bg-zinc-800 disabled:opacity-60 dark:bg-white dark:text-black dark:hover:bg-zinc-200"
+          className="group inline-flex h-12 items-center gap-3 rounded-pill bg-ink px-6 text-sm font-medium text-paper transition hover:bg-mangrove-2 disabled:opacity-60"
         >
           {pending ? "Sending…" : "Request access"}
+          <span
+            aria-hidden
+            className="font-mono text-xs transition-transform group-hover:translate-x-0.5"
+          >
+            ↗
+          </span>
         </button>
+        <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-ink-3">
+          Manual review · no auto-approvals
+        </span>
       </div>
     </form>
   );
@@ -84,9 +108,15 @@ function Field({
 }) {
   return (
     <label className="flex flex-col gap-1.5">
-      <span className="text-sm font-medium text-zinc-800 dark:text-zinc-200">
-        {label}
-        {required ? <span className="text-zinc-400"> *</span> : null}
+      <span className="flex items-baseline justify-between">
+        <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-ink-2">
+          {label}
+          {required ? (
+            <span className="ml-1 text-terracotta">·</span>
+          ) : (
+            <span className="ml-1 text-ink-3">opt.</span>
+          )}
+        </span>
       </span>
       <input
         name={name}
@@ -95,10 +125,10 @@ function Field({
         placeholder={placeholder}
         autoComplete={autoComplete}
         aria-invalid={error ? true : undefined}
-        className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm outline-none ring-0 focus:border-black focus:ring-2 focus:ring-black/10 dark:border-zinc-700 dark:bg-zinc-900 dark:focus:border-white dark:focus:ring-white/10"
+        className="h-11 rounded-field border border-hair bg-surface px-3 text-[15px] text-ink placeholder:text-ink-3 focus:border-mangrove focus:outline-none focus:ring-2 focus:ring-mangrove/20"
       />
       {error ? (
-        <span className="text-xs text-red-600 dark:text-red-400">{error}</span>
+        <span className="font-mono text-[11px] text-terracotta">{error}</span>
       ) : null}
     </label>
   );
@@ -109,26 +139,31 @@ function TextareaField({
   name,
   placeholder,
   error,
+  optional,
 }: {
   label: string;
   name: string;
   placeholder?: string;
   error?: string;
+  optional?: boolean;
 }) {
   return (
     <label className="flex flex-col gap-1.5">
-      <span className="text-sm font-medium text-zinc-800 dark:text-zinc-200">
-        {label}
+      <span className="flex items-baseline justify-between">
+        <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-ink-2">
+          {label}
+          {optional ? <span className="ml-1 text-ink-3">opt.</span> : null}
+        </span>
       </span>
       <textarea
         name={name}
         rows={3}
         placeholder={placeholder}
         aria-invalid={error ? true : undefined}
-        className="resize-y rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm outline-none ring-0 focus:border-black focus:ring-2 focus:ring-black/10 dark:border-zinc-700 dark:bg-zinc-900 dark:focus:border-white dark:focus:ring-white/10"
+        className="resize-y rounded-field border border-hair bg-surface px-3 py-2 text-[15px] text-ink placeholder:text-ink-3 focus:border-mangrove focus:outline-none focus:ring-2 focus:ring-mangrove/20"
       />
       {error ? (
-        <span className="text-xs text-red-600 dark:text-red-400">{error}</span>
+        <span className="font-mono text-[11px] text-terracotta">{error}</span>
       ) : null}
     </label>
   );

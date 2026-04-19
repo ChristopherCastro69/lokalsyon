@@ -25,7 +25,7 @@ type Props = {
 
 // Leaflet's default marker icon relies on image URLs that webpack mangles. Use a
 // simple SVG div-icon instead — crisper and bundle-friendly.
-function makeDivIcon(color = "#111827", number?: number) {
+function makeDivIcon(color = "#1a1611", number?: number) {
   const numberLabel =
     typeof number === "number"
       ? `<div style="
@@ -64,7 +64,7 @@ export default function LeafletMap({
   const otherMarkersRef = useRef<Map<string, L.Marker>>(new Map());
   const polylineRef = useRef<L.Polyline | null>(null);
 
-  const defaultIcon = useMemo(() => makeDivIcon("#111827"), []);
+  const defaultIcon = useMemo(() => makeDivIcon("#1a1611"), []);
 
   // init + teardown
   useEffect(() => {
@@ -157,7 +157,7 @@ export default function LeafletMap({
       // Recreate markers unconditionally when number/color change to keep the icon fresh.
       existing.get(p.id)?.remove();
       const marker = L.marker([p.pos.lat, p.pos.lng], {
-        icon: makeDivIcon(p.color ?? "#2563eb", p.number),
+        icon: makeDivIcon(p.color ?? "#c84a24", p.number),
       }).addTo(map);
       if (p.label) marker.bindTooltip(p.label);
       existing.set(p.id, marker);
@@ -175,7 +175,7 @@ export default function LeafletMap({
     if (polyline && polyline.length >= 2) {
       polylineRef.current = L.polyline(
         polyline.map((p) => [p.lat, p.lng]),
-        { color: "#2563eb", weight: 4, opacity: 0.85 },
+        { color: "#0b6b50", weight: 4, opacity: 0.9, dashArray: "1 8", lineCap: "round" },
       ).addTo(map);
     }
   }, [polyline]);

@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import CustomerForm from "@/components/CustomerForm";
+import Wordmark from "@/components/brand/Wordmark";
 
 export const dynamic = "force-dynamic";
 
@@ -19,9 +20,7 @@ export default async function CustomerLocationPage({ params }: PageProps) {
     .eq("slug", slug)
     .maybeSingle();
 
-  if (!seller) {
-    return <NotFound message="This link isn't valid." />;
-  }
+  if (!seller) return <NotFound />;
 
   const { data: order } = await supabase
     .from("orders")
@@ -30,9 +29,7 @@ export default async function CustomerLocationPage({ params }: PageProps) {
     .eq("code", code)
     .maybeSingle();
 
-  if (!order) {
-    return <NotFound message="This link isn't valid." />;
-  }
+  if (!order) return <NotFound />;
 
   const center =
     seller.default_map_lat != null && seller.default_map_lng != null
@@ -44,78 +41,102 @@ export default async function CustomerLocationPage({ params }: PageProps) {
   const delivered = order.status === "delivered";
 
   return (
-    <div className="mx-auto flex w-full max-w-lg flex-col gap-6 px-5 py-8">
-      <header className="flex flex-col gap-2">
-        <div className="text-xs font-mono tracking-[0.2em] text-zinc-500 uppercase">
-          {seller.display_name}
+    <div className="relative flex min-h-full flex-1 flex-col">
+      {/* Shop header strip */}
+      <header className="border-b border-hair bg-surface/80 backdrop-blur-md">
+        <div className="mx-auto flex w-full max-w-lg items-center justify-between gap-3 px-5 py-3">
+          <span className="truncate font-display text-base tracking-tight text-ink">
+            {seller.display_name}
+          </span>
+          <Wordmark size="sm" className="text-ink-3" />
         </div>
-        <h1 className="text-2xl font-semibold tracking-tight text-black dark:text-zinc-50">
-          Hi {order.customer_name}!
-        </h1>
-        <p className="text-sm text-zinc-600 dark:text-zinc-400">
-          {delivered
-            ? "This order has been delivered. Thanks!"
-            : alreadySubmitted
-              ? "Your delivery location is saved. You can update it below until we deliver."
-              : "Confirm your delivery location below."}
-        </p>
       </header>
 
-      {delivered ? (
-        <DeliveredView
-          customerName={order.customer_name}
-          product={order.product}
-        />
-      ) : (
-        <CustomerForm
-          slug={seller.slug}
-          code={order.code}
-          customerName={order.customer_name}
-          product={order.product}
-          center={center}
-          initialZoom={zoom}
-          initialPin={
-            order.lat != null && order.lng != null
-              ? { lat: order.lat, lng: order.lng }
-              : null
-          }
-          initialPhone={order.phone ?? ""}
-          initialNotes={order.notes ?? ""}
-          isUpdate={alreadySubmitted}
-        />
-      )}
+      <main className="mx-auto flex w-full max-w-lg flex-1 flex-col gap-6 px-5 pb-12 pt-8">
+        {/* Order summary card */}
+        <section className="with-crosshairs relative flex flex-col gap-3 border border-hair bg-surface px-5 py-5">
+          <div className="flex items-center gap-2">
+            <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-ink-3">
+              Delivery No.
+            </span>
+            <span className="rounded-pill border border-hair bg-paper px-2 py-0.5 font-mono text-[11px] text-ink">
+              {order.code}
+            </span>
+          </div>
+          <h1 className="font-display text-[32px] leading-[1.05] tracking-tight text-ink sm:text-[40px]">
+            Hi {order.customer_name}
+            <span className="text-terracotta">.</span>
+          </h1>
+          <p className="text-sm leading-relaxed text-ink-2">
+            {delivered
+              ? "This order has been delivered. Thanks for shopping!"
+              : alreadySubmitted
+                ? "Your delivery location is saved. You can update it any time until we deliver."
+                : "Let us know exactly where to drop off your order."}
+          </p>
+        </section>
+
+        {delivered ? (
+          <DeliveredView product={order.product} />
+        ) : (
+          <CustomerForm
+            slug={seller.slug}
+            code={order.code}
+            customerName={order.customer_name}
+            product={order.product}
+            center={center}
+            initialZoom={zoom}
+            initialPin={
+              order.lat != null && order.lng != null
+                ? { lat: order.lat, lng: order.lng }
+                : null
+            }
+            initialPhone={order.phone ?? ""}
+            initialNotes={order.notes ?? ""}
+            isUpdate={alreadySubmitted}
+          />
+        )}
+      </main>
+
+      <footer className="border-t border-hair/60">
+        <div className="mx-auto flex w-full max-w-lg items-center justify-between px-5 py-4 font-mono text-[10px] uppercase tracking-[0.22em] text-ink-3">
+          <span>Powered by Lokalsyon</span>
+          <span>No app required</span>
+        </div>
+      </footer>
     </div>
   );
 }
 
-function DeliveredView({
-  customerName,
-  product,
-}: {
-  customerName: string;
-  product: string;
-}) {
+function DeliveredView({ product }: { product: string }) {
   return (
-    <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-6 text-emerald-900 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-100">
-      <div className="text-lg font-semibold">Delivered</div>
-      <p className="mt-1 text-sm opacity-90">
-        Thanks, {customerName} — your <span className="font-medium">{product}</span>{" "}
-        has been delivered. Hope you enjoy it!
+    <div className="with-crosshairs relative flex flex-col gap-3 border border-mangrove/40 bg-mangrove-soft/50 p-6">
+      <div className="flex items-center gap-2">
+        <span className="h-2 w-2 rounded-full bg-mangrove" />
+        <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-mangrove-2">
+          Delivered
+        </span>
+      </div>
+      <h2 className="font-display text-2xl text-ink">Your order arrived.</h2>
+      <p className="text-sm leading-relaxed text-ink-2">
+        Your <span className="font-medium text-ink">{product}</span> has been
+        delivered. Hope you enjoy it!
       </p>
     </div>
   );
 }
 
-function NotFound({ message }: { message: string }) {
+function NotFound() {
   return (
-    <div className="mx-auto flex w-full max-w-lg flex-col gap-4 px-5 py-16 text-center">
-      <div className="text-xs font-mono tracking-[0.2em] text-zinc-500 uppercase">
-        Lokalsyon
-      </div>
-      <h1 className="text-2xl font-semibold text-black dark:text-zinc-50">
-        Link not found
-      </h1>
-      <p className="text-sm text-zinc-600 dark:text-zinc-400">{message}</p>
+    <div className="relative flex min-h-full flex-1 flex-col">
+      <main className="mx-auto flex w-full max-w-lg flex-1 flex-col items-start justify-center gap-4 px-5 py-16">
+        <Wordmark />
+        <h1 className="font-display text-4xl text-ink">Link not found.</h1>
+        <p className="text-sm text-ink-2">
+          This link isn&rsquo;t valid — it may have been mistyped or the order
+          was cancelled. Please ask the seller for a new link.
+        </p>
+      </main>
     </div>
   );
 }

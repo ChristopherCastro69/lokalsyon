@@ -2,6 +2,7 @@
 
 import { useActionState, useEffect, useState } from "react";
 import LeafletMap, { type LatLng } from "@/components/LeafletMapLazy";
+import CoordLabel from "@/components/brand/CoordLabel";
 import {
   submitLocation,
   type SubmitLocationState,
@@ -41,11 +42,8 @@ export default function CustomerForm({
   const [zoom, setZoom] = useState<number>(initialPin ? 17 : initialZoom);
   const [geoBusy, setGeoBusy] = useState(false);
   const [geoError, setGeoError] = useState<string | null>(null);
-  // Show success card when re-opening an already-submitted order, or right
-  // after a successful submit. "Edit location" flips back to the form.
   const [editing, setEditing] = useState<boolean>(!isUpdate);
 
-  // Flip to success view after a successful submit.
   useEffect(() => {
     if (state.ok) setEditing(false);
   }, [state.ok]);
@@ -53,10 +51,47 @@ export default function CustomerForm({
   const mapCenter = pin ?? center;
   const effectiveZoom = pin ? Math.max(zoom, 16) : initialZoom;
 
+  // Read-only "thanks" card shown after submit and on return visits.
+  if (!editing) {
+    return (
+      <div className="with-crosshairs relative flex flex-col gap-4 border border-mangrove/40 bg-mangrove-soft/40 p-6">
+        <div className="flex items-center gap-2">
+          <span className="h-2 w-2 rounded-full bg-mangrove" />
+          <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-mangrove-2">
+            Saved
+          </span>
+        </div>
+        <h2 className="font-display text-2xl leading-tight text-ink">
+          Thanks, {customerName}.
+        </h2>
+        <p className="text-sm leading-relaxed text-ink-2">
+          {state.ok
+            ? state.message
+            : "We have your delivery location. We'll message you before we arrive."}
+        </p>
+        <p className="font-mono text-[11px] text-ink-3">
+          You can update the pin, phone, or notes any time before we deliver.
+        </p>
+        <button
+          type="button"
+          onClick={() => setEditing(true)}
+          className="group mt-1 inline-flex h-11 w-fit items-center gap-2 rounded-pill bg-ink px-5 text-sm font-medium text-paper hover:bg-mangrove-2"
+        >
+          Edit location &amp; details
+          <span
+            aria-hidden
+            className="font-mono text-xs transition-transform group-hover:translate-x-0.5"
+          >
+            ↗
+          </span>
+        </button>
+      </div>
+    );
+  }
 
   function useMyLocation() {
     if (!navigator.geolocation) {
-      setGeoError("This browser doesn't support location. Please drop a pin instead.");
+      setGeoError("This browser doesn't support location. Tap the map instead.");
       return;
     }
     setGeoBusy(true);
@@ -71,95 +106,87 @@ export default function CustomerForm({
         setGeoBusy(false);
         setGeoError(
           err.code === err.PERMISSION_DENIED
-            ? "Location permission was blocked. You can still tap the map to drop a pin."
-            : "Couldn't get your location. You can still tap the map to drop a pin.",
+            ? "Location permission was blocked. You can still tap the map."
+            : "Couldn't get your location. You can still tap the map.",
         );
       },
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 },
     );
   }
 
-  if (!editing) {
-    return (
-      <div className="flex flex-col gap-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-6 text-emerald-900 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-100">
-        <div>
-          <div className="text-lg font-semibold">Thanks, {customerName}!</div>
-          <p className="mt-1 text-sm opacity-90">
-            {state.ok
-              ? state.message
-              : "We have your delivery location. We'll message you before we arrive."}
-          </p>
-        </div>
-        <p className="text-xs opacity-75">
-          You can update the pin, phone, or notes any time before we deliver.
-        </p>
-        <div>
-          <button
-            type="button"
-            onClick={() => setEditing(true)}
-            className="inline-flex h-10 items-center justify-center rounded-full bg-black px-5 text-sm font-medium text-white hover:bg-zinc-800 dark:bg-white dark:text-black dark:hover:bg-zinc-200"
-          >
-            Edit location & details
-          </button>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <form action={formAction} className="flex flex-col gap-5">
-      <section className="flex flex-col gap-3">
-        <div className="flex flex-col gap-1">
-          <span className="text-xs font-medium uppercase tracking-wider text-zinc-500">
+    <form action={formAction} className="flex flex-col gap-6">
+      {/* Order block — quiet confirmation */}
+      <section className="flex items-start justify-between gap-4 border-b border-hair pb-4">
+        <div className="flex flex-col gap-0.5">
+          <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-ink-3">
             Your order
           </span>
-          <div className="text-lg text-black dark:text-zinc-50">
+          <span className="font-display text-lg leading-snug text-ink">
             {product}
-          </div>
+          </span>
         </div>
       </section>
 
-      <section className="flex flex-col gap-2">
-        <div className="flex items-center justify-between gap-3">
-          <span className="text-sm font-medium text-zinc-800 dark:text-zinc-200">
-            Where should we deliver?
-            <span className="text-zinc-400"> *</span>
+      {/* Map + location picker */}
+      <section className="flex flex-col gap-3">
+        <div className="flex items-baseline justify-between">
+          <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-ink-2">
+            Where to deliver<span className="ml-1 text-terracotta">·</span>
           </span>
-          <button
-            type="button"
-            onClick={useMyLocation}
-            disabled={geoBusy}
-            className="inline-flex h-9 items-center rounded-full bg-black px-4 text-xs font-medium text-white hover:bg-zinc-800 disabled:opacity-60 dark:bg-white dark:text-black dark:hover:bg-zinc-200"
-          >
-            {geoBusy ? "Getting location…" : "📍 Use my current location"}
-          </button>
+          {pin ? (
+            <CoordLabel lat={pin.lat} lng={pin.lng} />
+          ) : (
+            <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-ink-3">
+              Drop a pin
+            </span>
+          )}
         </div>
-        <p className="text-xs text-zinc-500 dark:text-zinc-400">
+
+        <button
+          type="button"
+          onClick={useMyLocation}
+          disabled={geoBusy}
+          className="inline-flex h-12 items-center justify-center gap-2 rounded-pill bg-terracotta px-4 text-sm font-medium text-paper shadow-sm hover:bg-terracotta-2 disabled:opacity-60"
+        >
+          {geoBusy ? (
+            "Getting your location…"
+          ) : (
+            <>
+              <LocateIcon />
+              Use my current location
+            </>
+          )}
+        </button>
+
+        <p className="text-xs text-ink-3">
           Or tap on the map to drop a pin. Drag the pin to fine-tune.
         </p>
         {geoError ? (
-          <p className="text-xs text-amber-700 dark:text-amber-400">{geoError}</p>
+          <p className="rounded-field border border-sunfade/50 bg-sunfade/10 px-3 py-2 text-xs text-ink-2">
+            {geoError}
+          </p>
         ) : null}
 
-        <LeafletMap
-          center={mapCenter}
-          zoom={effectiveZoom}
-          pin={pin}
-          onPinChange={(p) => {
-            setPin(p);
-            if (zoom < 16) setZoom(17);
-          }}
-          className="h-[340px] w-full rounded-xl border border-zinc-200 dark:border-zinc-800"
-        />
-        {pin ? (
-          <p className="font-mono text-xs text-zinc-500">
-            {pin.lat.toFixed(5)}, {pin.lng.toFixed(5)}
+        <div className="overflow-hidden rounded-card border border-hair">
+          <LeafletMap
+            center={mapCenter}
+            zoom={effectiveZoom}
+            pin={pin}
+            onPinChange={(p) => {
+              setPin(p);
+              if (zoom < 16) setZoom(17);
+            }}
+            className="h-[340px] w-full"
+          />
+        </div>
+
+        {!pin ? (
+          <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-terracotta">
+            ↑ Drop a pin to continue
           </p>
-        ) : (
-          <p className="text-xs text-amber-700 dark:text-amber-400">
-            Drop a pin to continue.
-          </p>
-        )}
+        ) : null}
+
         <input type="hidden" name="lat" value={pin?.lat ?? ""} />
         <input type="hidden" name="lng" value={pin?.lng ?? ""} />
       </section>
@@ -176,25 +203,56 @@ export default function CustomerForm({
       />
 
       <TextareaField
-        label="Notes / landmark (optional)"
+        label="Notes / landmark"
         name="notes"
+        optional
         placeholder="e.g. Near the big mango tree, green gate"
         defaultValue={initialNotes}
         error={state.fieldErrors?.notes}
       />
 
       {state.message && !state.ok ? (
-        <p className="text-sm text-red-600 dark:text-red-400">{state.message}</p>
+        <p
+          role="alert"
+          className="rounded-field border border-brick/40 bg-brick-soft px-3 py-2 text-sm text-brick"
+        >
+          {state.message}
+        </p>
       ) : null}
 
-      <button
-        type="submit"
-        disabled={pending || !pin}
-        className="inline-flex h-12 items-center justify-center rounded-full bg-black px-6 text-base font-medium text-white transition hover:bg-zinc-800 disabled:opacity-60 dark:bg-white dark:text-black dark:hover:bg-zinc-200"
-      >
-        {pending ? "Saving…" : isUpdate ? "Update location" : "Submit"}
-      </button>
+      {/* Sticky-ish submit on mobile; inline on larger */}
+      <div className="sticky bottom-2 z-10 -mx-5 mt-2 border-t border-hair bg-paper/90 px-5 pb-[max(env(safe-area-inset-bottom),8px)] pt-3 backdrop-blur sm:static sm:mx-0 sm:border-0 sm:bg-transparent sm:px-0 sm:pt-1 sm:backdrop-blur-none">
+        <button
+          type="submit"
+          disabled={pending || !pin}
+          className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-pill bg-ink px-6 text-base font-medium text-paper transition hover:bg-mangrove-2 disabled:opacity-50"
+        >
+          {pending ? "Saving…" : isUpdate ? "Update location" : "Confirm location"}
+        </button>
+      </div>
     </form>
+  );
+}
+
+function LocateIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden>
+      <circle cx="12" cy="12" r="3" fill="currentColor" />
+      <circle
+        cx="12"
+        cy="12"
+        r="8"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        fill="none"
+      />
+      <path
+        d="M12 2v2M12 20v2M2 12h2M20 12h2"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+      />
+    </svg>
   );
 }
 
@@ -219,9 +277,11 @@ function TextField({
 }) {
   return (
     <label className="flex flex-col gap-1.5">
-      <span className="text-sm font-medium text-zinc-800 dark:text-zinc-200">
-        {label}
-        {required ? <span className="text-zinc-400"> *</span> : null}
+      <span className="flex items-baseline justify-between">
+        <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-ink-2">
+          {label}
+          {required ? <span className="ml-1 text-terracotta">·</span> : null}
+        </span>
       </span>
       <input
         name={name}
@@ -231,11 +291,11 @@ function TextField({
         defaultValue={defaultValue}
         inputMode={type === "tel" ? "tel" : undefined}
         aria-invalid={error ? true : undefined}
-        className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm outline-none focus:border-black focus:ring-2 focus:ring-black/10 dark:border-zinc-700 dark:bg-zinc-900 dark:focus:border-white dark:focus:ring-white/10"
+        className="h-12 rounded-field border border-hair bg-surface px-3 text-[15px] text-ink placeholder:text-ink-3 focus:border-mangrove focus:outline-none focus:ring-2 focus:ring-mangrove/20"
       />
-      {hint ? <span className="text-xs text-zinc-500">{hint}</span> : null}
+      {hint ? <span className="text-xs text-ink-3">{hint}</span> : null}
       {error ? (
-        <span className="text-xs text-red-600 dark:text-red-400">{error}</span>
+        <span className="font-mono text-[11px] text-terracotta">{error}</span>
       ) : null}
     </label>
   );
@@ -247,17 +307,22 @@ function TextareaField({
   placeholder,
   defaultValue,
   error,
+  optional,
 }: {
   label: string;
   name: string;
   placeholder?: string;
   defaultValue?: string;
   error?: string;
+  optional?: boolean;
 }) {
   return (
     <label className="flex flex-col gap-1.5">
-      <span className="text-sm font-medium text-zinc-800 dark:text-zinc-200">
-        {label}
+      <span className="flex items-baseline justify-between">
+        <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-ink-2">
+          {label}
+          {optional ? <span className="ml-1 text-ink-3">opt.</span> : null}
+        </span>
       </span>
       <textarea
         name={name}
@@ -265,10 +330,10 @@ function TextareaField({
         placeholder={placeholder}
         defaultValue={defaultValue}
         aria-invalid={error ? true : undefined}
-        className="resize-y rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm outline-none focus:border-black focus:ring-2 focus:ring-black/10 dark:border-zinc-700 dark:bg-zinc-900 dark:focus:border-white dark:focus:ring-white/10"
+        className="resize-y rounded-field border border-hair bg-surface px-3 py-2 text-[15px] text-ink placeholder:text-ink-3 focus:border-mangrove focus:outline-none focus:ring-2 focus:ring-mangrove/20"
       />
       {error ? (
-        <span className="text-xs text-red-600 dark:text-red-400">{error}</span>
+        <span className="font-mono text-[11px] text-terracotta">{error}</span>
       ) : null}
     </label>
   );

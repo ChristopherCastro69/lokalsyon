@@ -3,10 +3,10 @@
 import { useActionState, useState } from "react";
 import { createSeller, type SetupState } from "@/app/actions/setup";
 import LeafletMap, { type LatLng } from "@/components/LeafletMapLazy";
+import CoordLabel from "@/components/brand/CoordLabel";
 
 const initial: SetupState = { ok: false, message: "" };
 
-// Default center: roughly Philippines center, overridden as soon as user drops a pin.
 const DEFAULT_CENTER: LatLng = { lat: 12.8797, lng: 121.774 };
 const DEFAULT_ZOOM = 6;
 
@@ -26,7 +26,7 @@ export default function SetupForm() {
         setZoom(15);
       },
       () => {
-        // User denied / error — stay at default view.
+        /* no-op */
       },
     );
   }
@@ -37,74 +37,82 @@ export default function SetupForm() {
         label="Shop / couple name"
         name="display_name"
         required
-        placeholder="e.g. Jane & Mark's Boutique"
+        placeholder="Jane &amp; Mark's Boutique"
         error={state.fieldErrors?.display_name}
       />
       <TextField
-        label="Slug (used in your link: /s/[slug]/p/…)"
+        label="Slug"
         name="slug"
         required
         placeholder="jane-and-mark"
         pattern="^[a-z0-9]+(?:-[a-z0-9]+)*$"
+        hint="Lowercase letters, numbers, hyphens. Your link will be /s/<slug>/p/…"
         error={state.fieldErrors?.slug}
-        hint="Lowercase letters, numbers, and hyphens only."
       />
 
-      <div className="flex flex-col gap-2">
-        <div className="flex items-center justify-between gap-3">
-          <span className="text-sm font-medium text-zinc-800 dark:text-zinc-200">
-            Default map center
-            <span className="text-zinc-400"> *</span>
+      {/* Map block */}
+      <section className="flex flex-col gap-3">
+        <div className="flex items-baseline justify-between">
+          <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-ink-2">
+            Default map center<span className="ml-1 text-terracotta">·</span>
           </span>
           <button
             type="button"
             onClick={useMyLocation}
-            className="text-xs font-medium text-blue-600 hover:underline dark:text-blue-400"
+            className="font-mono text-[11px] uppercase tracking-[0.15em] text-mangrove-2 hover:underline"
           >
-            Use my current location
+            📍 My location
           </button>
         </div>
-        <p className="text-xs text-zinc-500 dark:text-zinc-400">
-          Tap on the map at the center of your municipality. Customers will see
-          the map centered here when they open their delivery link.
+        <p className="text-xs text-ink-3">
+          Tap the map to drop a pin at your municipality&rsquo;s center.
+          Customers see this when they open a delivery link.
         </p>
-        <LeafletMap
-          center={center}
-          zoom={effectiveZoom}
-          pin={pin}
-          onPinChange={(p) => {
-            setPin(p);
-            if (zoom < 14) setZoom(15);
-          }}
-          className="h-[360px] w-full rounded-xl border border-zinc-200 dark:border-zinc-800"
-        />
-        {pin ? (
-          <p className="font-mono text-xs text-zinc-500">
-            {pin.lat.toFixed(5)}, {pin.lng.toFixed(5)}
-          </p>
-        ) : (
-          <p className="text-xs text-amber-700 dark:text-amber-400">
-            Drop a pin on the map to continue.
-          </p>
-        )}
+        <div className="overflow-hidden rounded-card border border-hair">
+          <LeafletMap
+            center={center}
+            zoom={effectiveZoom}
+            pin={pin}
+            onPinChange={(p) => {
+              setPin(p);
+              if (zoom < 14) setZoom(15);
+            }}
+            className="h-[360px] w-full"
+          />
+        </div>
+        <div className="flex items-center justify-between">
+          {pin ? (
+            <CoordLabel lat={pin.lat} lng={pin.lng} />
+          ) : (
+            <span className="font-mono text-[11px] uppercase tracking-[0.18em] text-terracotta">
+              Drop a pin to continue
+            </span>
+          )}
+        </div>
         <input type="hidden" name="lat" value={pin?.lat ?? ""} />
         <input type="hidden" name="lng" value={pin?.lng ?? ""} />
         <input type="hidden" name="zoom" value={14} />
-      </div>
+      </section>
 
       {state.message && !state.ok ? (
-        <p className="text-sm text-red-600 dark:text-red-400">{state.message}</p>
+        <p
+          role="alert"
+          className="rounded-field border border-brick/40 bg-brick-soft px-3 py-2 text-sm text-brick"
+        >
+          {state.message}
+        </p>
       ) : null}
 
-      <div>
-        <button
-          type="submit"
-          disabled={pending || !pin}
-          className="inline-flex h-11 items-center justify-center rounded-full bg-black px-6 text-sm font-medium text-white transition hover:bg-zinc-800 disabled:opacity-60 dark:bg-white dark:text-black dark:hover:bg-zinc-200"
-        >
-          {pending ? "Setting up…" : "Create my seller"}
-        </button>
-      </div>
+      <button
+        type="submit"
+        disabled={pending || !pin}
+        className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-pill bg-ink px-6 text-sm font-medium text-paper transition hover:bg-mangrove-2 disabled:opacity-50 sm:w-fit"
+      >
+        {pending ? "Setting up…" : "Create my shop"}
+        <span aria-hidden className="font-mono text-xs">
+          ↗
+        </span>
+      </button>
     </form>
   );
 }
@@ -128,9 +136,9 @@ function TextField({
 }) {
   return (
     <label className="flex flex-col gap-1.5">
-      <span className="text-sm font-medium text-zinc-800 dark:text-zinc-200">
+      <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-ink-2">
         {label}
-        {required ? <span className="text-zinc-400"> *</span> : null}
+        {required ? <span className="ml-1 text-terracotta">·</span> : null}
       </span>
       <input
         name={name}
@@ -138,11 +146,11 @@ function TextField({
         placeholder={placeholder}
         pattern={pattern}
         aria-invalid={error ? true : undefined}
-        className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm outline-none focus:border-black focus:ring-2 focus:ring-black/10 dark:border-zinc-700 dark:bg-zinc-900 dark:focus:border-white dark:focus:ring-white/10"
+        className="h-12 rounded-field border border-hair bg-surface px-3 text-[15px] text-ink placeholder:text-ink-3 focus:border-mangrove focus:outline-none focus:ring-2 focus:ring-mangrove/20"
       />
-      {hint ? <span className="text-xs text-zinc-500">{hint}</span> : null}
+      {hint ? <span className="text-xs text-ink-3">{hint}</span> : null}
       {error ? (
-        <span className="text-xs text-red-600 dark:text-red-400">{error}</span>
+        <span className="font-mono text-[11px] text-terracotta">{error}</span>
       ) : null}
     </label>
   );

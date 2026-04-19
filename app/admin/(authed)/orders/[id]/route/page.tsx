@@ -25,15 +25,17 @@ export default async function OrderRoutePage({ params }: PageProps) {
     .maybeSingle();
 
   if (!order) notFound();
+
   if (order.lat == null || order.lng == null) {
     return (
-      <div className="flex flex-col gap-3">
-        <h1 className="text-2xl font-semibold tracking-tight text-black dark:text-zinc-50">
-          No location yet
-        </h1>
-        <p className="text-sm text-zinc-600 dark:text-zinc-400">
-          This order hasn&rsquo;t been pinned by the customer. Share the link and
-          check back.
+      <div className="mx-auto flex max-w-md flex-col gap-3 py-8 text-center">
+        <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-ink-3">
+          §&nbsp;Route preview
+        </span>
+        <h1 className="font-display text-3xl text-ink">No location yet.</h1>
+        <p className="text-sm text-ink-2">
+          This order hasn&rsquo;t been pinned by the customer yet. Share the
+          link and check back in a minute.
         </p>
       </div>
     );
@@ -42,11 +44,13 @@ export default async function OrderRoutePage({ params }: PageProps) {
   return (
     <div className="flex flex-col gap-6">
       <header className="flex flex-col gap-1">
-        <div className="text-xs font-mono tracking-[0.2em] text-zinc-500 uppercase">
-          Route preview
-        </div>
-        <h1 className="text-2xl font-semibold tracking-tight text-black dark:text-zinc-50">
-          {order.customer_name} &middot; {order.product}
+        <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-ink-3">
+          §&nbsp;Route preview
+        </span>
+        <h1 className="font-display text-[30px] leading-[1.1] tracking-tight text-ink sm:text-4xl">
+          {order.customer_name}
+          <span className="mx-2 font-normal text-ink-3">/</span>
+          <span className="font-normal text-ink-2">{order.product}</span>
         </h1>
       </header>
       <RoutePreview

@@ -10,26 +10,29 @@ export default async function AdminHome() {
   if (!user.seller) {
     if (user.isSuperAdmin) {
       return (
-        <div className="flex flex-col gap-6">
-          <div>
-            <h1 className="text-2xl font-semibold tracking-tight text-black dark:text-zinc-50">
-              Hello, super-admin.
+        <div className="mx-auto flex max-w-xl flex-col gap-6">
+          <header className="flex flex-col gap-2">
+            <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-ink-3">
+              §&nbsp;Super-admin
+            </span>
+            <h1 className="font-display text-3xl tracking-tight text-ink sm:text-4xl">
+              You haven&rsquo;t set up a shop yet.
             </h1>
-            <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-              You don&rsquo;t have a seller workspace yet. You can set one up for yourself,
-              or jump straight to reviewing waitlist requests.
+            <p className="text-sm text-ink-2">
+              You can create your own seller workspace, or jump straight to
+              reviewing the waitlist queue.
             </p>
-          </div>
+          </header>
           <div className="flex flex-wrap gap-3">
             <Link
               href="/admin/setup"
-              className="inline-flex h-10 items-center justify-center rounded-full bg-black px-5 text-sm font-medium text-white hover:bg-zinc-800 dark:bg-white dark:text-black dark:hover:bg-zinc-200"
+              className="inline-flex h-11 items-center rounded-pill bg-ink px-5 text-sm font-medium text-paper hover:bg-mangrove-2"
             >
-              Set up my seller
+              Set up my shop →
             </Link>
             <Link
               href="/admin/waitlist"
-              className="inline-flex h-10 items-center justify-center rounded-full border border-zinc-300 bg-white px-5 text-sm font-medium text-black hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-white dark:hover:bg-zinc-800"
+              className="inline-flex h-11 items-center rounded-pill border border-hair bg-surface px-5 text-sm font-medium text-ink hover:bg-paper-deep"
             >
               Review waitlist
             </Link>
@@ -41,14 +44,17 @@ export default async function AdminHome() {
   }
 
   return (
-    <div className="flex flex-col gap-6">
-      <header className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold tracking-tight text-black dark:text-zinc-50">
-          New order
+    <div className="mx-auto flex max-w-xl flex-col gap-7">
+      <header className="flex flex-col gap-2">
+        <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-ink-3">
+          §&nbsp;New order
+        </span>
+        <h1 className="font-display text-[34px] leading-[1.05] tracking-tight text-ink sm:text-[42px]">
+          Who&rsquo;s next?
         </h1>
-        <p className="text-sm text-zinc-600 dark:text-zinc-400">
-          Generate a link to send to a customer. They drop a pin on a map;
-          their location appears in <Link href="/admin/orders" className="underline">Orders</Link>.
+        <p className="text-sm text-ink-2">
+          Give them a name and what they&rsquo;re buying. We&rsquo;ll mint a
+          one-use link. They drop a pin. You deliver.
         </p>
       </header>
       <NewOrderForm />
