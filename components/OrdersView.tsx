@@ -379,8 +379,8 @@ function FilterChip({
       onClick={onClick}
       className={
         active
-          ? "inline-flex shrink-0 items-center gap-2 rounded-pill bg-ink px-3.5 py-1.5 text-sm font-medium text-paper"
-          : "inline-flex shrink-0 items-center gap-2 rounded-pill border border-hair bg-surface px-3.5 py-1.5 text-sm text-ink-2 hover:bg-paper-deep hover:text-ink"
+          ? "inline-flex h-9 shrink-0 items-center gap-2 rounded-pill bg-ink px-3.5 text-sm font-medium text-paper transition active:opacity-80"
+          : "inline-flex h-9 shrink-0 items-center gap-2 rounded-pill border border-hair bg-surface px-3.5 text-sm text-ink-2 transition active:bg-paper-deep active:text-ink hover:bg-paper-deep hover:text-ink"
       }
     >
       {label}
@@ -450,7 +450,7 @@ function OrderRow({
             disabled={disabled}
             aria-label="Delete order"
             title="Delete order"
-            className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-ink-3 hover:bg-paper-deep hover:text-brick"
+            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-ink-3 transition active:bg-paper-deep active:text-brick hover:bg-paper-deep hover:text-brick sm:h-8 sm:w-8"
           >
             ✕
           </button>

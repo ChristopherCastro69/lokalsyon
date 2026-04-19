@@ -407,7 +407,7 @@ function ItemRow({
               onClick={onRemove}
               disabled={!canRemove}
               aria-label="Remove item"
-              className="inline-flex h-8 w-8 items-center justify-center rounded-full text-ink-3 hover:bg-paper-deep hover:text-brick disabled:opacity-30"
+              className="inline-flex h-10 w-10 items-center justify-center rounded-full text-ink-3 transition active:bg-paper-deep active:text-brick hover:bg-paper-deep hover:text-brick disabled:opacity-30 sm:h-8 sm:w-8"
             >
               ✕
             </button>

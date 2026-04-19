@@ -42,10 +42,10 @@ export default async function AuthedAdminLayout({
                 {user.seller.display_name}
               </span>
             ) : null}
-            <form action={signOut}>
+            <form action={signOut} className="relative z-10">
               <button
                 type="submit"
-                className="rounded-pill border border-hair bg-surface px-3 py-1 font-mono text-[10px] uppercase tracking-[0.18em] text-ink-2 hover:bg-paper-deep hover:text-ink"
+                className="inline-flex h-10 items-center rounded-pill border border-hair bg-surface px-4 font-mono text-[10px] uppercase tracking-[0.18em] text-ink-2 transition active:bg-paper-deep active:text-ink hover:bg-paper-deep hover:text-ink sm:h-8 sm:px-3"
               >
                 Sign out
               </button>

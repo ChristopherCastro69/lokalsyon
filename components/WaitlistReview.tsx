@@ -189,8 +189,8 @@ function FilterChip({
       onClick={onClick}
       className={
         active
-          ? "inline-flex shrink-0 items-center gap-2 rounded-pill bg-ink px-3.5 py-1.5 text-sm font-medium text-paper"
-          : "inline-flex shrink-0 items-center gap-2 rounded-pill border border-hair bg-surface px-3.5 py-1.5 text-sm text-ink-2 hover:bg-paper-deep hover:text-ink"
+          ? "inline-flex h-9 shrink-0 items-center gap-2 rounded-pill bg-ink px-3.5 text-sm font-medium text-paper transition active:opacity-80"
+          : "inline-flex h-9 shrink-0 items-center gap-2 rounded-pill border border-hair bg-surface px-3.5 text-sm text-ink-2 transition active:bg-paper-deep active:text-ink hover:bg-paper-deep hover:text-ink"
       }
     >
       {label}
