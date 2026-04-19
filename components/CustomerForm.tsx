@@ -3,6 +3,8 @@
 import { useActionState, useEffect, useState } from "react";
 import LeafletMap, { type LatLng } from "@/components/LeafletMapLazy";
 import CoordLabel from "@/components/brand/CoordLabel";
+import ItemsReceipt from "@/components/ItemsReceipt";
+import type { OrderItem, OrderType } from "@/lib/types";
 import {
   submitLocation,
   type SubmitLocationState,
@@ -13,6 +15,12 @@ type Props = {
   code: string;
   customerName: string;
   product: string;
+  items: OrderItem[];
+  totalAmount: number | null;
+  currency: string;
+  orderType: OrderType;
+  scheduledFor: string | null;
+  rentalEndAt: string | null;
   center: LatLng;
   initialZoom: number;
   initialPin?: LatLng | null;
@@ -28,6 +36,12 @@ export default function CustomerForm({
   code,
   customerName,
   product,
+  items,
+  totalAmount,
+  currency,
+  orderType,
+  scheduledFor,
+  rentalEndAt,
   center,
   initialZoom,
   initialPin = null,
@@ -35,6 +49,12 @@ export default function CustomerForm({
   initialNotes = "",
   isUpdate = false,
 }: Props) {
+  const schedule =
+    orderType === "rental" && scheduledFor && rentalEndAt
+      ? ({ kind: "rental", scheduledFor, rentalEndAt } as const)
+      : orderType === "sale" && scheduledFor
+        ? ({ kind: "sale", scheduledFor } as const)
+        : null;
   const boundAction = submitLocation.bind(null, slug, code);
   const [state, formAction, pending] = useActionState(boundAction, initial);
 
@@ -116,16 +136,26 @@ export default function CustomerForm({
 
   return (
     <form action={formAction} className="flex flex-col gap-6">
-      {/* Order block — quiet confirmation */}
-      <section className="flex items-start justify-between gap-4 border-b border-hair pb-4">
-        <div className="flex flex-col gap-0.5">
-          <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-ink-3">
-            Your order
-          </span>
-          <span className="font-display text-lg leading-snug text-ink">
-            {product}
-          </span>
-        </div>
+      {/* Order receipt */}
+      <section className="rounded-field border border-hair bg-paper px-4 py-3">
+        {items && items.length > 0 ? (
+          <ItemsReceipt
+            heading="Your order"
+            items={items}
+            totalAmount={totalAmount}
+            currency={currency}
+            schedule={schedule}
+          />
+        ) : (
+          <div className="flex flex-col gap-0.5">
+            <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-ink-3">
+              Your order
+            </span>
+            <span className="font-display text-lg leading-snug text-ink">
+              {product}
+            </span>
+          </div>
+        )}
       </section>
 
       {/* Map + location picker */}

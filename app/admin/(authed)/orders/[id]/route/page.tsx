@@ -19,7 +19,9 @@ export default async function OrderRoutePage({ params }: PageProps) {
   const supabase = await createClient();
   const { data: order } = await supabase
     .from("orders")
-    .select("id, customer_name, product, phone, notes, lat, lng")
+    .select(
+      "id, customer_name, product, items, total_amount, currency, order_type, scheduled_for, rental_end_at, phone, notes, lat, lng",
+    )
     .eq("id", id)
     .eq("seller_id", user.seller.id)
     .maybeSingle();
@@ -57,6 +59,12 @@ export default async function OrderRoutePage({ params }: PageProps) {
         orderId={order.id}
         customerName={order.customer_name}
         product={order.product}
+        items={order.items ?? []}
+        totalAmount={order.total_amount}
+        currency={order.currency ?? "PHP"}
+        orderType={order.order_type ?? "sale"}
+        scheduledFor={order.scheduled_for}
+        rentalEndAt={order.rental_end_at}
         destination={{ lat: order.lat, lng: order.lng }}
         phone={order.phone}
         notes={order.notes}

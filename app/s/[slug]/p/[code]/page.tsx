@@ -24,7 +24,9 @@ export default async function CustomerLocationPage({ params }: PageProps) {
 
   const { data: order } = await supabase
     .from("orders")
-    .select("id, code, customer_name, product, status, submitted_at, lat, lng, phone, notes")
+    .select(
+      "id, code, customer_name, product, items, total_amount, currency, order_type, scheduled_for, rental_end_at, status, submitted_at, lat, lng, phone, notes",
+    )
     .eq("seller_id", seller.id)
     .eq("code", code)
     .maybeSingle();
@@ -84,6 +86,12 @@ export default async function CustomerLocationPage({ params }: PageProps) {
             code={order.code}
             customerName={order.customer_name}
             product={order.product}
+            items={order.items ?? []}
+            totalAmount={order.total_amount}
+            currency={order.currency ?? "PHP"}
+            orderType={order.order_type ?? "sale"}
+            scheduledFor={order.scheduled_for}
+            rentalEndAt={order.rental_end_at}
             center={center}
             initialZoom={zoom}
             initialPin={

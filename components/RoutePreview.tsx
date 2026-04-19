@@ -4,6 +4,8 @@ import { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
 import LeafletMap, { type LatLng } from "@/components/LeafletMapLazy";
 import CoordLabel from "@/components/brand/CoordLabel";
+import ItemsReceipt from "@/components/ItemsReceipt";
+import type { OrderItem, OrderType } from "@/lib/types";
 import { previewRouteToOrder } from "@/app/actions/routing";
 import { googleMapsLink, wazeLink } from "@/lib/navigation";
 
@@ -11,6 +13,12 @@ type Props = {
   orderId: string;
   customerName: string;
   product: string;
+  items: OrderItem[];
+  totalAmount: number | null;
+  currency: string;
+  orderType: OrderType;
+  scheduledFor: string | null;
+  rentalEndAt: string | null;
   destination: LatLng;
   phone: string | null;
   notes: string | null;
@@ -23,10 +31,22 @@ export default function RoutePreview({
   orderId,
   customerName,
   product,
+  items,
+  totalAmount,
+  currency,
+  orderType,
+  scheduledFor,
+  rentalEndAt,
   destination,
   phone,
   notes,
 }: Props) {
+  const schedule =
+    orderType === "rental" && scheduledFor && rentalEndAt
+      ? ({ kind: "rental", scheduledFor, rentalEndAt } as const)
+      : orderType === "sale" && scheduledFor
+        ? ({ kind: "sale", scheduledFor } as const)
+        : null;
   const [origin, setOrigin] = useState<LatLng | null>(null);
   const [originError, setOriginError] = useState<string | null>(null);
   const [route, setRoute] = useState<{
@@ -175,6 +195,20 @@ export default function RoutePreview({
           </div>
           <CoordLabel lat={destination.lat} lng={destination.lng} />
         </div>
+
+        {items && items.length > 0 ? (
+          <>
+            <div className="divider-dashed" />
+            <ItemsReceipt
+              heading="Order"
+              items={items}
+              totalAmount={totalAmount}
+              currency={currency}
+              schedule={schedule}
+            />
+          </>
+        ) : null}
+
         <div className="divider-dashed" />
         <dl className="grid gap-3 text-sm sm:grid-cols-2">
           {phone ? (

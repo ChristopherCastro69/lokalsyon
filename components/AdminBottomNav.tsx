@@ -20,9 +20,16 @@ export default function AdminBottomNav({ hasSeller, isSuperAdmin }: Props) {
   }> = [
     {
       href: "/admin",
+      label: "Home",
+      icon: <HomeIcon />,
+      match: (p: string) => p === "/admin",
+      visible: hasSeller,
+    },
+    {
+      href: "/admin/new",
       label: "New",
       icon: <PlusIcon />,
-      match: (p: string) => p === "/admin",
+      match: (p: string) => p.startsWith("/admin/new"),
       visible: hasSeller,
     },
     {
@@ -43,12 +50,14 @@ export default function AdminBottomNav({ hasSeller, isSuperAdmin }: Props) {
 
   if (tabs.length === 0) return null;
 
+  const cols = tabs.length === 4 ? "grid-cols-4" : "grid-cols-3";
+
   return (
     <nav
       aria-label="Primary"
       className="fixed inset-x-0 bottom-0 z-30 border-t border-hair bg-paper/92 backdrop-blur-md pb-[env(safe-area-inset-bottom)] sm:hidden"
     >
-      <ul className="mx-auto grid max-w-md grid-cols-3 items-stretch">
+      <ul className={`mx-auto grid max-w-md items-stretch ${cols}`}>
         {tabs.map((tab) => {
           const active = tab.match(pathname);
           return (
@@ -57,9 +66,7 @@ export default function AdminBottomNav({ hasSeller, isSuperAdmin }: Props) {
                 href={tab.href}
                 aria-current={active ? "page" : undefined}
                 className={`flex flex-col items-center gap-1 py-2.5 transition ${
-                  active
-                    ? "text-ink"
-                    : "text-ink-3 hover:text-ink"
+                  active ? "text-ink" : "text-ink-3 hover:text-ink"
                 }`}
               >
                 <span
@@ -81,6 +88,21 @@ export default function AdminBottomNav({ hasSeller, isSuperAdmin }: Props) {
         })}
       </ul>
     </nav>
+  );
+}
+
+function HomeIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <circle cx="12" cy="12" r="8" stroke="currentColor" strokeWidth="1.5" />
+      <path
+        d="M12 2v3M12 19v3M2 12h3M19 12h3"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+      />
+      <circle cx="13" cy="11" r="2.25" fill="currentColor" />
+    </svg>
   );
 }
 

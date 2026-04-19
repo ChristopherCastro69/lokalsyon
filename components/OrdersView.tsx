@@ -12,6 +12,8 @@ import { createClient } from "@/lib/supabase/client";
 import LeafletMap, { type LatLng } from "@/components/LeafletMapLazy";
 import CoordLabel from "@/components/brand/CoordLabel";
 import { googleMapsLink, wazeLink } from "@/lib/navigation";
+import { formatMoney } from "@/lib/money";
+import { formatDateShort } from "@/lib/dates";
 import { deleteOrder, markDelivered, markPending } from "@/app/actions/orders";
 import {
   optimizePendingOrders,
@@ -417,7 +419,7 @@ function OrderRow({
 
   return (
     <li className="flex flex-col gap-3 rounded-card border border-hair bg-surface p-4 sm:p-5">
-      {/* Row 1: name + status + stop number */}
+      {/* Row 1: name + status + stop number + total */}
       <div className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 items-start gap-3">
           {stopNumber ? (
@@ -426,25 +428,33 @@ function OrderRow({
             </span>
           ) : null}
           <div className="flex min-w-0 flex-col gap-0.5">
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <span className="truncate font-display text-lg leading-tight text-ink">
                 {order.customer_name}
               </span>
               <StatusDot status={order.status} />
+              <SchedulePill order={order} />
             </div>
             <div className="truncate text-sm text-ink-2">{order.product}</div>
           </div>
         </div>
-        <button
-          type="button"
-          onClick={onDelete}
-          disabled={disabled}
-          aria-label="Delete order"
-          title="Delete order"
-          className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-ink-3 hover:bg-paper-deep hover:text-brick"
-        >
-          ✕
-        </button>
+        <div className="flex shrink-0 items-start gap-2">
+          {order.total_amount != null ? (
+            <span className="font-display text-base tabular-nums text-ink">
+              {formatMoney(order.total_amount, order.currency ?? "PHP")}
+            </span>
+          ) : null}
+          <button
+            type="button"
+            onClick={onDelete}
+            disabled={disabled}
+            aria-label="Delete order"
+            title="Delete order"
+            className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-ink-3 hover:bg-paper-deep hover:text-brick"
+          >
+            ✕
+          </button>
+        </div>
       </div>
 
       {/* Row 2: metadata */}
@@ -529,6 +539,27 @@ function OrderRow({
       </div>
     </li>
   );
+}
+
+function SchedulePill({ order }: { order: Order }) {
+  if (order.order_type === "rental" && order.scheduled_for && order.rental_end_at) {
+    return (
+      <span className="inline-flex items-center gap-1 rounded-pill bg-terracotta-soft px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.18em] text-terracotta-2">
+        <span className="h-1.5 w-1.5 rounded-full bg-terracotta" />
+        Rental · {formatDateShort(order.scheduled_for)} →{" "}
+        {formatDateShort(order.rental_end_at)}
+      </span>
+    );
+  }
+  if (order.scheduled_for) {
+    return (
+      <span className="inline-flex items-center gap-1 rounded-pill bg-sand-soft px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.18em] text-ink-2">
+        <span className="h-1.5 w-1.5 rounded-full bg-sunfade" />
+        {formatDateShort(order.scheduled_for)}
+      </span>
+    );
+  }
+  return null;
 }
 
 function StatusDot({ status }: { status: Order["status"] }) {

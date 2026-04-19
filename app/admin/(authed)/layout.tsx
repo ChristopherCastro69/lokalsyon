@@ -27,7 +27,8 @@ export default async function AuthedAdminLayout({
             {/* Desktop nav */}
             {hasSeller ? (
               <nav className="hidden items-center gap-1 sm:flex">
-                <TopLink href="/admin">New order</TopLink>
+                <TopLink href="/admin">Home</TopLink>
+                <TopLink href="/admin/new">New order</TopLink>
                 <TopLink href="/admin/orders">Orders</TopLink>
                 {user.isSuperAdmin ? (
                   <TopLink href="/admin/waitlist">Waitlist</TopLink>
