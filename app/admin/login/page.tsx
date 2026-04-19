@@ -43,9 +43,11 @@ export default async function LoginPage({
               §&nbsp;Sign in
             </span>
             <h1 className="font-display text-3xl tracking-tight text-ink">
-              Dispatch access
+              Seller access
             </h1>
-            <p className="text-sm text-ink-2">Admin only.</p>
+            <p className="text-sm text-ink-2">
+              Welcome back. Sign in to manage your shop.
+            </p>
           </div>
 
           {error ? (

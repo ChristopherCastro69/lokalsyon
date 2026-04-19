@@ -4,16 +4,9 @@ import { z } from "zod";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
+import { slugify } from "@/lib/slugify";
 
 const SetupSchema = z.object({
-  slug: z
-    .string()
-    .min(3, "Slug must be at least 3 characters.")
-    .max(40, "Slug must be under 40 characters.")
-    .regex(
-      /^[a-z0-9]+(?:-[a-z0-9]+)*$/,
-      "Use lowercase letters, numbers, and single hyphens only (e.g. jane-and-mark).",
-    ),
   display_name: z
     .string()
     .min(2, "Give your shop a name.")
@@ -29,12 +22,15 @@ export type SetupState = {
   fieldErrors?: Partial<Record<keyof z.infer<typeof SetupSchema>, string>>;
 };
 
+// Upper bound for slug suffix attempts. 100 is plenty — if "jane-and-mark"
+// through "jane-and-mark-100" are all taken, something unusual is going on.
+const MAX_SLUG_ATTEMPTS = 100;
+
 export async function createSeller(
   _prev: SetupState,
   formData: FormData,
 ): Promise<SetupState> {
   const raw = {
-    slug: (formData.get("slug") ?? "").toString().trim().toLowerCase(),
     display_name: (formData.get("display_name") ?? "").toString().trim(),
     lat: formData.get("lat"),
     lng: formData.get("lng"),
@@ -51,6 +47,18 @@ export async function createSeller(
     return { ok: false, message: "Please fix the highlighted fields.", fieldErrors };
   }
 
+  const baseSlug = slugify(parsed.data.display_name);
+  if (baseSlug.length < 2) {
+    return {
+      ok: false,
+      message: "Shop name must contain readable letters or numbers.",
+      fieldErrors: {
+        display_name:
+          "Use at least two letters or numbers — emojis / symbols alone won't work for the URL.",
+      },
+    };
+  }
+
   const supabase = await createClient();
   const { data: userData, error: userError } = await supabase.auth.getUser();
   if (userError || !userData.user) {
@@ -59,8 +67,8 @@ export async function createSeller(
   const user = userData.user;
 
   // Gate seller creation on an approved waitlist entry (or super-admin).
-  // This is defense-in-depth: if Supabase Auth signup is ever re-enabled,
-  // random signups still can't create a seller workspace.
+  // Defense-in-depth: if Supabase Auth public signup is ever re-enabled,
+  // random accounts still can't spin up a seller workspace.
   const isSuperAdmin =
     (user.app_metadata as { role?: string } | null)?.role === "super_admin";
   if (!isSuperAdmin) {
@@ -82,53 +90,62 @@ export async function createSeller(
     }
   }
 
-  // Slug uniqueness pre-check — friendlier error than relying on the DB constraint.
-  const { data: existing } = await supabase
-    .from("sellers")
-    .select("id")
-    .eq("slug", parsed.data.slug)
-    .maybeSingle();
-  if (existing) {
-    return {
-      ok: false,
-      message: "That slug is already taken.",
-      fieldErrors: { slug: "That slug is already taken — pick another." },
-    };
-  }
-
   // Service-role client: RLS on sellers/seller_members restricts inserts to
-  // super-admins only; setup runs for any authed user, so we bypass here.
-  // The user's identity is verified above, so we only ever write their own row.
+  // super-admins only; setup runs for any authed approved user, so we bypass
+  // here. The user's identity is verified above.
   const service = createServiceClient();
 
-  const { data: seller, error: insertSellerError } = await service
-    .from("sellers")
-    .insert({
-      slug: parsed.data.slug,
-      display_name: parsed.data.display_name,
-      default_map_lat: parsed.data.lat,
-      default_map_lng: parsed.data.lng,
-      default_map_zoom: parsed.data.zoom,
-    })
-    .select("id")
-    .single();
+  // Race-safe unique slug: try baseSlug, then base-2, base-3 ... on unique violation.
+  let sellerId: string | null = null;
+  let finalSlug = baseSlug;
+  let lastErrorMessage: string | null = null;
+  for (let attempt = 0; attempt < MAX_SLUG_ATTEMPTS; attempt++) {
+    finalSlug = attempt === 0 ? baseSlug : `${baseSlug}-${attempt + 1}`;
+    const { data, error } = await service
+      .from("sellers")
+      .insert({
+        slug: finalSlug,
+        display_name: parsed.data.display_name,
+        default_map_lat: parsed.data.lat,
+        default_map_lng: parsed.data.lng,
+        default_map_zoom: parsed.data.zoom,
+      })
+      .select("id")
+      .single();
+    if (!error && data) {
+      sellerId = data.id;
+      break;
+    }
+    // 23505 = unique_violation
+    if (
+      error &&
+      (error.code === "23505" || error.message.toLowerCase().includes("unique"))
+    ) {
+      lastErrorMessage = "slug-conflict";
+      continue;
+    }
+    return { ok: false, message: error?.message ?? "Couldn't create seller." };
+  }
 
-  if (insertSellerError || !seller) {
+  if (!sellerId) {
     return {
       ok: false,
-      message: insertSellerError?.message ?? "Couldn't create seller.",
+      message:
+        lastErrorMessage === "slug-conflict"
+          ? "Too many shops with a similar name — try a more distinctive shop name."
+          : "Couldn't create seller.",
     };
   }
 
   const { error: memberError } = await service.from("seller_members").insert({
-    seller_id: seller.id,
+    seller_id: sellerId,
     user_id: user.id,
     role: "owner",
   });
 
   if (memberError) {
-    // Roll back the seller insert so we don't leave an orphan row.
-    await service.from("sellers").delete().eq("id", seller.id);
+    // Rollback the seller row so we don't leave an orphan.
+    await service.from("sellers").delete().eq("id", sellerId);
     return { ok: false, message: memberError.message };
   }
 
