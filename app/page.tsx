@@ -14,7 +14,7 @@ export default function Home() {
             href="/admin/login"
             className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink-3 hover:text-ink"
           >
-            Admin
+            Sign in
           </Link>
         </div>
       </header>
@@ -99,6 +99,15 @@ export default function Home() {
               Lokalsyon is in soft launch. Every new seller is approved by hand
               so we can keep quality tight. We&rsquo;ll write back within a day
               or two.
+            </p>
+            <p className="text-sm text-ink-2">
+              Already an approved seller?{" "}
+              <Link
+                href="/admin/login"
+                className="font-medium text-ink underline underline-offset-4 decoration-terracotta decoration-2 hover:decoration-ink"
+              >
+                Sign in here →
+              </Link>
             </p>
           </header>
 

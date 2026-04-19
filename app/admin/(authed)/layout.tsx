@@ -52,17 +52,6 @@ export default async function AuthedAdminLayout({
             </form>
           </div>
         </div>
-        {/* Sub-bar: seller slug pill (helps you remember your /s/slug URL) */}
-        {user.seller ? (
-          <div className="mx-auto flex w-full max-w-5xl items-center gap-2 border-t border-hair/60 px-4 py-1.5 sm:px-8">
-            <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-ink-3">
-              Link prefix
-            </span>
-            <span className="rounded-pill border border-hair bg-surface px-2 py-0.5 font-mono text-[11px] text-ink">
-              /s/{user.seller.slug}/p/
-            </span>
-          </div>
-        ) : null}
       </header>
 
       <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-6 pb-24 sm:px-8 sm:py-8 sm:pb-8">

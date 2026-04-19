@@ -27,9 +27,12 @@ export default async function LoginPage({
           <Link href="/" className="text-ink hover:opacity-80">
             <Wordmark size="sm" />
           </Link>
-          <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-ink-3">
+          <Link
+            href="/"
+            className="font-mono text-[10px] uppercase tracking-[0.22em] text-ink-3 hover:text-ink"
+          >
             ← Home
-          </span>
+          </Link>
         </div>
       </header>
 
