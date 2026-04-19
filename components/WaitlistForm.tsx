@@ -1,12 +1,14 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useRef } from "react";
 import { submitWaitlist, type WaitlistFormState } from "@/app/actions/waitlist";
 
 const initialState: WaitlistFormState = { ok: false, message: "" };
 
+// Capture mount time once so the server-side timing check is meaningful.
 export default function WaitlistForm() {
   const [state, formAction, pending] = useActionState(submitWaitlist, initialState);
+  const startedAtRef = useRef<number>(Date.now());
 
   if (state.ok) {
     return (
@@ -25,6 +27,35 @@ export default function WaitlistForm() {
 
   return (
     <form action={formAction} className="flex flex-col gap-5">
+      {/* Honeypot — hidden from humans (and from assistive tech) but visible to naive bots. */}
+      <div
+        aria-hidden="true"
+        style={{
+          position: "absolute",
+          left: "-10000px",
+          top: "auto",
+          width: 1,
+          height: 1,
+          overflow: "hidden",
+        }}
+      >
+        <label>
+          Website (leave this empty)
+          <input
+            type="text"
+            name="website"
+            tabIndex={-1}
+            autoComplete="off"
+            defaultValue=""
+          />
+        </label>
+      </div>
+      <input
+        type="hidden"
+        name="form_started_at"
+        value={startedAtRef.current}
+      />
+
       <div className="grid gap-5 sm:grid-cols-2">
         <Field
           label="Email"

@@ -2,6 +2,7 @@
 
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
+import { getClientIp, rateLimit } from "@/lib/rate-limit";
 
 const WaitlistSchema = z.object({
   email: z.string().email("That doesn't look like an email address."),
@@ -22,12 +23,42 @@ export type WaitlistFormState = {
   fieldErrors?: Partial<Record<keyof z.infer<typeof WaitlistSchema>, string>>;
 };
 
+// Soft-looking "success" response to feed bots without telling them we saw through.
+const DECOY_OK: WaitlistFormState = {
+  ok: true,
+  message:
+    "Thanks — we'll be in touch. Approvals are manual, so it may take a day or two.",
+};
+
 export async function submitWaitlist(
   _prev: WaitlistFormState,
   formData: FormData,
 ): Promise<WaitlistFormState> {
+  // --- Bot traps (silent) ---------------------------------------------------
+  // Honeypot — real browsers don't fill hidden fields.
+  if ((formData.get("website") ?? "").toString().trim() !== "") {
+    return DECOY_OK;
+  }
+  // Timing — a human can't fill 4 fields in under 2 seconds.
+  const startedAtRaw = (formData.get("form_started_at") ?? "").toString();
+  const startedAt = Number(startedAtRaw);
+  if (Number.isFinite(startedAt) && Date.now() - startedAt < 2000) {
+    return DECOY_OK;
+  }
+
+  // --- Per-IP rate limit ----------------------------------------------------
+  const ip = await getClientIp();
+  const rl = rateLimit(`waitlist:${ip}`, 5, 60 * 60 * 1000); // 5/hour/IP
+  if (!rl.allowed) {
+    return {
+      ok: false,
+      message:
+        "Too many requests. Please try again in a bit — we're only one small team on the other end.",
+    };
+  }
+
   const raw = {
-    email: (formData.get("email") ?? "").toString().trim(),
+    email: (formData.get("email") ?? "").toString().trim().toLowerCase(),
     display_name: (formData.get("display_name") ?? "").toString().trim(),
     municipality: (formData.get("municipality") ?? "").toString().trim(),
     message: (formData.get("message") ?? "").toString().trim() || undefined,
@@ -63,6 +94,14 @@ export async function submitWaitlist(
     const supabase = await createClient();
     const { error } = await supabase.from("waitlist_signups").insert(parsed.data);
     if (error) {
+      // Unique-constraint violation on email → already signed up.
+      if (error.code === "23505" || error.message.toLowerCase().includes("unique")) {
+        return {
+          ok: true,
+          message:
+            "You're already on the list — we'll reach out as soon as we can. No need to submit again.",
+        };
+      }
       return {
         ok: false,
         message:

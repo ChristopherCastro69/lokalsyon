@@ -2,6 +2,7 @@
 
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
+import { getClientIp, rateLimit } from "@/lib/rate-limit";
 
 const SubmitSchema = z.object({
   lat: z.coerce.number().min(-90).max(90),
@@ -29,6 +30,24 @@ export async function submitLocation(
   _prev: SubmitLocationState,
   formData: FormData,
 ): Promise<SubmitLocationState> {
+  // Rate-limit pin updates both per-code (catches someone spamming one link)
+  // and per-IP (catches one person blasting many codes).
+  const ip = await getClientIp();
+  const perCode = rateLimit(`customer_submit:code:${code}`, 30, 60 * 60 * 1000);
+  if (!perCode.allowed) {
+    return {
+      ok: false,
+      message: "Too many updates on this link. Try again in an hour.",
+    };
+  }
+  const perIp = rateLimit(`customer_submit:ip:${ip}`, 60, 60 * 60 * 1000);
+  if (!perIp.allowed) {
+    return {
+      ok: false,
+      message: "Too many submissions from this device. Try again in a bit.",
+    };
+  }
+
   const raw = {
     lat: formData.get("lat"),
     lng: formData.get("lng"),

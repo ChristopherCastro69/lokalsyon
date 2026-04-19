@@ -58,6 +58,30 @@ export async function createSeller(
   }
   const user = userData.user;
 
+  // Gate seller creation on an approved waitlist entry (or super-admin).
+  // This is defense-in-depth: if Supabase Auth signup is ever re-enabled,
+  // random signups still can't create a seller workspace.
+  const isSuperAdmin =
+    (user.app_metadata as { role?: string } | null)?.role === "super_admin";
+  if (!isSuperAdmin) {
+    const email = (user.email ?? "").toLowerCase();
+    if (!email) {
+      return { ok: false, message: "Your account has no email on file." };
+    }
+    const { data: entry } = await supabase
+      .from("waitlist_signups")
+      .select("status")
+      .eq("email", email)
+      .maybeSingle();
+    if (!entry || entry.status !== "approved") {
+      return {
+        ok: false,
+        message:
+          "Your account isn't approved to create a shop. Please request access via the waitlist.",
+      };
+    }
+  }
+
   // Slug uniqueness pre-check — friendlier error than relying on the DB constraint.
   const { data: existing } = await supabase
     .from("sellers")
