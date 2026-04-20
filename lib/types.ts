@@ -25,6 +25,8 @@ export type Order = {
   lng: number | null;
   address_label: string | null;
   notes: string | null;
+  /** Up to 2 public Supabase Storage URLs for landmark photos. */
+  photos: string[];
   status: "pending" | "delivered";
   created_at: string;
   submitted_at: string | null;

@@ -1,5 +1,6 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useActionState, useEffect, useState } from "react";
 import type { LatLng } from "@/components/LeafletMapLazy";
 import LeafletMap from "@/components/LeafletMapLazy";
@@ -10,6 +11,12 @@ import {
   submitLocation,
   type SubmitLocationState,
 } from "@/app/actions/customer";
+
+// Dynamic import so the compressor + uploader chunk only downloads in
+// non-lite mode when the component actually renders.
+const PhotoUploader = dynamic(() => import("@/components/PhotoUploader"), {
+  ssr: false,
+});
 
 type Props = {
   slug: string;
@@ -30,6 +37,7 @@ type Props = {
   isUpdate?: boolean;
   /** Server hinted this user is on Save-Data or ?lite=1. */
   initialLite?: boolean;
+  initialPhotos?: string[];
 };
 
 const initial: SubmitLocationState = { ok: false, message: "" };
@@ -52,6 +60,7 @@ export default function CustomerForm({
   initialNotes = "",
   isUpdate = false,
   initialLite = false,
+  initialPhotos = [],
 }: Props) {
   const boundAction = submitLocation.bind(null, slug, code);
   const [state, formAction, pending] = useActionState(boundAction, initial);
@@ -303,6 +312,14 @@ export default function CustomerForm({
           </button>
         </div>
       </section>
+
+      {!liteMode ? (
+        <PhotoUploader
+          slug={slug}
+          code={code}
+          initialPhotos={initialPhotos}
+        />
+      ) : null}
 
       <TextField
         label="Phone number"

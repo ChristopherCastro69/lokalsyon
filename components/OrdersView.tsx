@@ -11,6 +11,7 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import LeafletMap, { type LatLng } from "@/components/LeafletMapLazy";
 import CoordLabel from "@/components/brand/CoordLabel";
+import PhotoStrip from "@/components/PhotoStrip";
 import { googleMapsLink, wazeLink } from "@/lib/navigation";
 import { formatMoney } from "@/lib/money";
 import { formatDateShort } from "@/lib/dates";
@@ -482,6 +483,10 @@ function OrderRow({
         <p className="rounded-field border border-hair bg-paper px-3 py-1.5 text-sm italic text-ink-2">
           &ldquo;{order.notes}&rdquo;
         </p>
+      ) : null}
+
+      {order.photos && order.photos.length > 0 ? (
+        <PhotoStrip photos={order.photos} size={40} />
       ) : null}
 
       {/* Row 3: actions */}

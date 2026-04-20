@@ -39,7 +39,7 @@ export default async function CustomerLocationPage({
   const { data: order } = await supabase
     .from("orders")
     .select(
-      "id, code, customer_name, product, items, total_amount, currency, order_type, scheduled_for, rental_end_at, status, submitted_at, lat, lng, phone, notes",
+      "id, code, customer_name, product, items, total_amount, currency, order_type, scheduled_for, rental_end_at, status, submitted_at, lat, lng, phone, notes, photos",
     )
     .eq("seller_id", seller.id)
     .eq("code", code)
@@ -117,6 +117,7 @@ export default async function CustomerLocationPage({
             initialNotes={order.notes ?? ""}
             isUpdate={alreadySubmitted}
             initialLite={initialLite}
+            initialPhotos={order.photos ?? []}
           />
         )}
       </main>

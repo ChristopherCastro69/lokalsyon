@@ -5,6 +5,7 @@ import Link from "next/link";
 import LeafletMap, { type LatLng } from "@/components/LeafletMapLazy";
 import CoordLabel from "@/components/brand/CoordLabel";
 import ItemsReceipt from "@/components/ItemsReceipt";
+import PhotoStrip from "@/components/PhotoStrip";
 import type { OrderItem, OrderType } from "@/lib/types";
 import { previewRouteToOrder } from "@/app/actions/routing";
 import { googleMapsLink, wazeLink } from "@/lib/navigation";
@@ -22,6 +23,7 @@ type Props = {
   destination: LatLng;
   phone: string | null;
   notes: string | null;
+  photos: string[];
 };
 
 const PIN_DEST = "#c84a24"; // terracotta — customer
@@ -40,6 +42,7 @@ export default function RoutePreview({
   destination,
   phone,
   notes,
+  photos,
 }: Props) {
   const schedule =
     orderType === "rental" && scheduledFor && rentalEndAt
@@ -232,6 +235,16 @@ export default function RoutePreview({
                 Landmark / notes
               </dt>
               <dd className="italic text-ink-2">&ldquo;{notes}&rdquo;</dd>
+            </div>
+          ) : null}
+          {photos && photos.length > 0 ? (
+            <div className="flex flex-col gap-1.5 sm:col-span-2">
+              <dt className="font-mono text-[10px] uppercase tracking-[0.22em] text-ink-3">
+                Photos
+              </dt>
+              <dd>
+                <PhotoStrip photos={photos} size={64} />
+              </dd>
             </div>
           ) : null}
         </dl>
