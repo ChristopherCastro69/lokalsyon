@@ -487,7 +487,16 @@ function OrderRow({
       {/* Row 3: actions */}
       <div className="flex flex-wrap items-center gap-2 pt-1">
         {!order.submitted_at ? (
-          <CopyLinkButton link={customerLink} />
+          <>
+            <CopyLinkButton link={customerLink} />
+            <Link
+              href={`/admin/orders/${order.id}/set-location`}
+              className="inline-flex h-9 items-center rounded-pill border border-sunfade/50 bg-sunfade/10 px-3 font-mono text-[11px] uppercase tracking-[0.15em] text-ink-2 hover:bg-sunfade/20 hover:text-ink"
+              title="Set the customer's location yourself (for zero-data customers)"
+            >
+              Set location
+            </Link>
+          </>
         ) : null}
         {hasLocation ? (
           <>

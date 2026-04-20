@@ -80,10 +80,18 @@ export default function LeafletMap({
       touchZoom: interactive,
     });
 
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      attribution: "© OpenStreetMap contributors",
-      maxZoom: 19,
-    }).addTo(map);
+    // CARTO Positron — CDN-backed, same OSM source. Faster than raw OSM
+    // tile servers from SE Asia. Retina ({r}) picks up 2x tiles on dense
+    // screens.
+    L.tileLayer(
+      "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
+      {
+        attribution:
+          '© <a href="https://openstreetmap.org/copyright">OpenStreetMap</a> · © <a href="https://carto.com/attributions">CARTO</a>',
+        subdomains: "abcd",
+        maxZoom: 19,
+      },
+    ).addTo(map);
 
     if (interactive && onPinChange) {
       map.on("click", (e: L.LeafletMouseEvent) => {

@@ -1,7 +1,8 @@
 "use client";
 
 import { useActionState, useEffect, useState } from "react";
-import LeafletMap, { type LatLng } from "@/components/LeafletMapLazy";
+import type { LatLng } from "@/components/LeafletMapLazy";
+import LeafletMap from "@/components/LeafletMapLazy";
 import CoordLabel from "@/components/brand/CoordLabel";
 import ItemsReceipt from "@/components/ItemsReceipt";
 import type { OrderItem, OrderType } from "@/lib/types";
@@ -27,6 +28,8 @@ type Props = {
   initialPhone?: string;
   initialNotes?: string;
   isUpdate?: boolean;
+  /** Server hinted this user is on Save-Data or ?lite=1. */
+  initialLite?: boolean;
 };
 
 const initial: SubmitLocationState = { ok: false, message: "" };
@@ -48,13 +51,8 @@ export default function CustomerForm({
   initialPhone = "",
   initialNotes = "",
   isUpdate = false,
+  initialLite = false,
 }: Props) {
-  const schedule =
-    orderType === "rental" && scheduledFor && rentalEndAt
-      ? ({ kind: "rental", scheduledFor, rentalEndAt } as const)
-      : orderType === "sale" && scheduledFor
-        ? ({ kind: "sale", scheduledFor } as const)
-        : null;
   const boundAction = submitLocation.bind(null, slug, code);
   const [state, formAction, pending] = useActionState(boundAction, initial);
 
@@ -64,12 +62,45 @@ export default function CustomerForm({
   const [geoError, setGeoError] = useState<string | null>(null);
   const [editing, setEditing] = useState<boolean>(!isUpdate);
 
+  // liteMode: no map at all, ever. Auto-detected from Save-Data / Network
+  // Information API (Android/Chrome mostly). Users can toggle manually.
+  const [liteMode, setLiteMode] = useState<boolean>(initialLite);
+  // Inside non-lite mode, the map is hidden until the user asks for it
+  // (or they're editing a prior submission with a saved pin).
+  const [showMap, setShowMap] = useState<boolean>(Boolean(initialPin));
+
+  // Client-side low-signal detection. Runs once on mount; opt in to lite
+  // mode if the browser reports a slow connection, but never override a
+  // user-initiated choice made later.
+  useEffect(() => {
+    if (initialLite) return;
+    const nav = navigator as Navigator & {
+      connection?: {
+        effectiveType?: string;
+        saveData?: boolean;
+      };
+    };
+    const eff = nav.connection?.effectiveType;
+    const save = nav.connection?.saveData;
+    if (eff === "slow-2g" || eff === "2g" || save) {
+      setLiteMode(true);
+    }
+  }, [initialLite]);
+
   useEffect(() => {
     if (state.ok) setEditing(false);
   }, [state.ok]);
 
+  const schedule =
+    orderType === "rental" && scheduledFor && rentalEndAt
+      ? ({ kind: "rental", scheduledFor, rentalEndAt } as const)
+      : orderType === "sale" && scheduledFor
+        ? ({ kind: "sale", scheduledFor } as const)
+        : null;
+
   const mapCenter = pin ?? center;
   const effectiveZoom = pin ? Math.max(zoom, 16) : initialZoom;
+  const mapShouldRender = !liteMode && (showMap || Boolean(pin));
 
   // Read-only "thanks" card shown after submit and on return visits.
   if (!editing) {
@@ -94,7 +125,11 @@ export default function CustomerForm({
         </p>
         <button
           type="button"
-          onClick={() => setEditing(true)}
+          onClick={() => {
+            setEditing(true);
+            // If there's a saved pin, user is probably here to tweak it — show map.
+            if (pin) setShowMap(true);
+          }}
           className="group mt-1 inline-flex h-11 w-fit items-center gap-2 rounded-pill bg-ink px-5 text-sm font-medium text-paper hover:bg-mangrove-2"
         >
           Edit location &amp; details
@@ -111,7 +146,7 @@ export default function CustomerForm({
 
   function useMyLocation() {
     if (!navigator.geolocation) {
-      setGeoError("This browser doesn't support location. Tap the map instead.");
+      setGeoError("This browser doesn't support location.");
       return;
     }
     setGeoBusy(true);
@@ -126,9 +161,12 @@ export default function CustomerForm({
         setGeoBusy(false);
         setGeoError(
           err.code === err.PERMISSION_DENIED
-            ? "Location permission was blocked. You can still tap the map."
-            : "Couldn't get your location. You can still tap the map.",
+            ? "Location permission was blocked. You can still tap the map or contact the seller."
+            : "Couldn't get your location. Try again, or contact the seller so they can set it for you.",
         );
+        // In lite mode, auto-reveal nothing — user has to retry GPS or contact seller.
+        // In default mode, reveal the map so the user has a fallback.
+        if (!liteMode) setShowMap(true);
       },
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 },
     );
@@ -158,7 +196,7 @@ export default function CustomerForm({
         )}
       </section>
 
-      {/* Map + location picker */}
+      {/* Location section */}
       <section className="flex flex-col gap-3">
         <div className="flex items-baseline justify-between">
           <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-ink-2">
@@ -168,57 +206,102 @@ export default function CustomerForm({
             <CoordLabel lat={pin.lat} lng={pin.lng} />
           ) : (
             <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-ink-3">
-              Drop a pin
+              {liteMode ? "Tap to share" : "Drop a pin"}
             </span>
           )}
         </div>
 
+        {/* GPS button — always primary */}
         <button
           type="button"
           onClick={useMyLocation}
           disabled={geoBusy}
-          className="inline-flex h-12 items-center justify-center gap-2 rounded-pill bg-terracotta px-4 text-sm font-medium text-paper shadow-sm hover:bg-terracotta-2 disabled:opacity-60"
+          className="inline-flex h-12 items-center justify-center gap-2 rounded-pill bg-terracotta px-4 text-sm font-medium text-paper shadow-sm active:bg-terracotta-2 hover:bg-terracotta-2 disabled:opacity-60"
         >
           {geoBusy ? (
             "Getting your location…"
           ) : (
             <>
               <LocateIcon />
-              Use my current location
+              {pin ? "Update to my current location" : "Share my current location"}
             </>
           )}
         </button>
 
-        <p className="text-xs text-ink-3">
-          Or tap on the map to drop a pin. Drag the pin to fine-tune.
-        </p>
+        {/* Helper copy varies by mode */}
+        {liteMode ? (
+          <p className="text-xs text-ink-3">
+            Lite mode is on — map is hidden to save data. Tap the button above
+            to share your location via GPS. If that doesn&rsquo;t work, contact
+            the seller and they can set your location for you.
+          </p>
+        ) : !showMap ? (
+          <p className="text-xs text-ink-3">
+            GPS is usually accurate to within 10 m. Or{" "}
+            <button
+              type="button"
+              onClick={() => setShowMap(true)}
+              className="text-ink underline underline-offset-4 decoration-terracotta decoration-2 hover:decoration-ink"
+            >
+              drop a pin on a map instead
+            </button>
+            .
+          </p>
+        ) : (
+          <p className="text-xs text-ink-3">
+            Tap on the map to drop a pin. Drag the pin to fine-tune.
+          </p>
+        )}
+
         {geoError ? (
           <p className="rounded-field border border-sunfade/50 bg-sunfade/10 px-3 py-2 text-xs text-ink-2">
             {geoError}
           </p>
         ) : null}
 
-        <div className="overflow-hidden rounded-card border border-hair">
-          <LeafletMap
-            center={mapCenter}
-            zoom={effectiveZoom}
-            pin={pin}
-            onPinChange={(p) => {
-              setPin(p);
-              if (zoom < 16) setZoom(17);
-            }}
-            className="h-[340px] w-full"
-          />
-        </div>
+        {mapShouldRender ? (
+          <div className="overflow-hidden rounded-card border border-hair">
+            <LeafletMap
+              center={mapCenter}
+              zoom={effectiveZoom}
+              pin={pin}
+              onPinChange={(p) => {
+                setPin(p);
+                if (zoom < 16) setZoom(17);
+              }}
+              className="h-[340px] w-full"
+            />
+          </div>
+        ) : null}
 
         {!pin ? (
           <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-terracotta">
-            ↑ Drop a pin to continue
+            ↑ Share or drop a pin to continue
           </p>
         ) : null}
 
         <input type="hidden" name="lat" value={pin?.lat ?? ""} />
         <input type="hidden" name="lng" value={pin?.lng ?? ""} />
+
+        {/* Lite-mode toggle — low-contrast so it doesn't crowd the primary CTA. */}
+        <div className="flex items-center justify-between pt-1">
+          <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink-3">
+            {liteMode ? "Lite mode · map hidden" : "Normal mode"}
+          </span>
+          <button
+            type="button"
+            onClick={() => {
+              setLiteMode((v) => !v);
+              // When turning lite mode off, reveal the map by default so the
+              // user can see the benefit of their choice.
+              if (liteMode) setShowMap(true);
+              else setShowMap(false);
+            }}
+            className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink-3 underline underline-offset-2 hover:text-ink"
+          >
+            {liteMode ? "Use full map" : "Low signal? Lite mode"}
+          </button>
+        </div>
       </section>
 
       <TextField
@@ -250,12 +333,11 @@ export default function CustomerForm({
         </p>
       ) : null}
 
-      {/* Sticky-ish submit on mobile; inline on larger */}
       <div className="sticky bottom-2 z-10 -mx-5 mt-2 border-t border-hair bg-paper/90 px-5 pb-[max(env(safe-area-inset-bottom),8px)] pt-3 backdrop-blur sm:static sm:mx-0 sm:border-0 sm:bg-transparent sm:px-0 sm:pt-1 sm:backdrop-blur-none">
         <button
           type="submit"
           disabled={pending || !pin}
-          className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-pill bg-ink px-6 text-base font-medium text-paper transition hover:bg-mangrove-2 disabled:opacity-50"
+          className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-pill bg-ink px-6 text-base font-medium text-paper transition active:bg-mangrove-2 hover:bg-mangrove-2 disabled:opacity-50"
         >
           {pending ? "Saving…" : isUpdate ? "Update location" : "Confirm location"}
         </button>

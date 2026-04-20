@@ -1,3 +1,4 @@
+import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import CustomerForm from "@/components/CustomerForm";
 import Wordmark from "@/components/brand/Wordmark";
@@ -6,12 +7,25 @@ export const dynamic = "force-dynamic";
 
 type PageProps = {
   params: Promise<{ slug: string; code: string }>;
+  searchParams: Promise<{ lite?: string }>;
 };
 
 const PH_CENTER = { lat: 12.8797, lng: 121.774 };
 
-export default async function CustomerLocationPage({ params }: PageProps) {
+export default async function CustomerLocationPage({
+  params,
+  searchParams,
+}: PageProps) {
   const { slug, code } = await params;
+  const { lite } = await searchParams;
+
+  // Server-side low-signal hint: Chrome sends `Save-Data: on` when the user
+  // has Data Saver enabled. The `?lite=1` query param is a manual override
+  // the seller can share with a customer they know is on a weak connection.
+  const hdrs = await headers();
+  const saveDataHeader = hdrs.get("save-data")?.toLowerCase() === "on";
+  const initialLite = saveDataHeader || lite === "1";
+
   const supabase = await createClient();
 
   const { data: seller } = await supabase
@@ -102,6 +116,7 @@ export default async function CustomerLocationPage({ params }: PageProps) {
             initialPhone={order.phone ?? ""}
             initialNotes={order.notes ?? ""}
             isUpdate={alreadySubmitted}
+            initialLite={initialLite}
           />
         )}
       </main>

@@ -44,6 +44,15 @@ export default function RootLayout({
       lang="en"
       className={`${fraunces.variable} ${instrumentSans.variable} ${jetbrainsMono.variable} h-full antialiased`}
     >
+      <head>
+        {/* Warm the TLS connection to the tile CDN so when a customer opens
+            the map, tiles start flowing without a handshake round-trip. */}
+        <link
+          rel="preconnect"
+          href="https://basemaps.cartocdn.com"
+          crossOrigin=""
+        />
+      </head>
       <body
         className="min-h-full flex flex-col bg-paper text-ink"
         suppressHydrationWarning

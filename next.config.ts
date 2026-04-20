@@ -1,5 +1,6 @@
 import type { NextConfig } from "next";
 import path from "node:path";
+import withBundleAnalyzer from "@next/bundle-analyzer";
 
 const nextConfig: NextConfig = {
   turbopack: {
@@ -8,4 +9,8 @@ const nextConfig: NextConfig = {
   devIndicators: false,
 };
 
-export default nextConfig;
+const analyzer = withBundleAnalyzer({
+  enabled: process.env.ANALYZE === "1",
+});
+
+export default analyzer(nextConfig);

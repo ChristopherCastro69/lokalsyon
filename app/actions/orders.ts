@@ -232,6 +232,51 @@ export async function markPending(
   return { ok: true };
 }
 
+/**
+ * Seller fills in the customer's location on their behalf — for zero-data
+ * customers who share a landmark over call / SMS / Messenger. No rate
+ * limit: the seller is authenticated and acts on their own rows.
+ */
+export async function setCustomerLocation(
+  orderId: string,
+  lat: number,
+  lng: number,
+  phone?: string | null,
+  notes?: string | null,
+): Promise<{ ok: boolean; message?: string }> {
+  const user = await getCurrentUser();
+  if (!user || !user.seller) return { ok: false, message: "Not authorized." };
+
+  if (
+    !Number.isFinite(lat) ||
+    !Number.isFinite(lng) ||
+    lat < -90 ||
+    lat > 90 ||
+    lng < -180 ||
+    lng > 180
+  ) {
+    return { ok: false, message: "Coordinates are out of range." };
+  }
+
+  const supabase = await createClient();
+  const patch: Record<string, unknown> = {
+    lat,
+    lng,
+    submitted_at: new Date().toISOString(),
+  };
+  if (phone !== undefined) patch.phone = phone && phone.length > 0 ? phone : null;
+  if (notes !== undefined) patch.notes = notes && notes.length > 0 ? notes : null;
+
+  const { error } = await supabase
+    .from("orders")
+    .update(patch)
+    .eq("id", orderId)
+    .eq("seller_id", user.seller.id);
+  if (error) return { ok: false, message: error.message };
+  revalidatePath("/admin/orders");
+  return { ok: true };
+}
+
 export async function deleteOrder(
   orderId: string,
 ): Promise<{ ok: boolean; message?: string }> {
