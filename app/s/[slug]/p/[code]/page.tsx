@@ -1,5 +1,6 @@
 import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
+import { resolveSellerBySlug } from "@/lib/seller-resolve";
 import CustomerForm from "@/components/CustomerForm";
 import Wordmark from "@/components/brand/Wordmark";
 
@@ -26,16 +27,10 @@ export default async function CustomerLocationPage({
   const saveDataHeader = hdrs.get("save-data")?.toLowerCase() === "on";
   const initialLite = saveDataHeader || lite === "1";
 
-  const supabase = await createClient();
-
-  const { data: seller } = await supabase
-    .from("sellers")
-    .select("id, slug, display_name, default_map_lat, default_map_lng, default_map_zoom")
-    .eq("slug", slug)
-    .maybeSingle();
-
+  const seller = await resolveSellerBySlug(slug);
   if (!seller) return <NotFound />;
 
+  const supabase = await createClient();
   const { data: order } = await supabase
     .from("orders")
     .select(

@@ -101,11 +101,24 @@ export async function createSeller(
   }
 
   // Race-safe unique slug: try baseSlug, then base-2, base-3 ... on unique violation.
+  // Also skip slugs already reserved as historical aliases of other sellers,
+  // otherwise the new shop would steal an old customer link.
   let sellerId: string | null = null;
   let finalSlug = baseSlug;
   let lastErrorMessage: string | null = null;
   for (let attempt = 0; attempt < MAX_SLUG_ATTEMPTS; attempt++) {
     finalSlug = attempt === 0 ? baseSlug : `${baseSlug}-${attempt + 1}`;
+
+    const { data: aliasHit } = await service
+      .from("seller_slug_aliases")
+      .select("slug")
+      .eq("slug", finalSlug)
+      .maybeSingle();
+    if (aliasHit) {
+      lastErrorMessage = "slug-conflict";
+      continue;
+    }
+
     const { data, error } = await service
       .from("sellers")
       .insert({

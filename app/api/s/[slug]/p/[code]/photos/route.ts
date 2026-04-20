@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
+import { resolveSellerBySlug } from "@/lib/seller-resolve";
 import { getClientIp, rateLimit } from "@/lib/rate-limit";
 
 const BUCKET = "order-photos";
@@ -11,17 +12,14 @@ type Ctx = { params: Promise<{ slug: string; code: string }> };
 
 /**
  * Resolve the order by (slug, code) using the anon client (RLS allows a
- * SELECT on both tables). Returns null on any mismatch.
+ * SELECT on both tables). Honors historical slug aliases so links shared
+ * under a previous name still resolve. Returns null on any mismatch.
  */
 async function resolveOrder(slug: string, code: string) {
-  const supabase = await createClient();
-  const { data: seller } = await supabase
-    .from("sellers")
-    .select("id")
-    .eq("slug", slug)
-    .maybeSingle();
+  const seller = await resolveSellerBySlug(slug);
   if (!seller) return null;
 
+  const supabase = await createClient();
   const { data: order } = await supabase
     .from("orders")
     .select("id, status, photos")

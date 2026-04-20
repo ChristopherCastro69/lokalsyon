@@ -30,6 +30,7 @@ export default async function AuthedAdminLayout({
                 <TopLink href="/admin">Home</TopLink>
                 <TopLink href="/admin/new">New order</TopLink>
                 <TopLink href="/admin/orders">Orders</TopLink>
+                <TopLink href="/admin/settings">Settings</TopLink>
                 {user.isSuperAdmin ? (
                   <TopLink href="/admin/waitlist">Waitlist</TopLink>
                 ) : null}
@@ -38,9 +39,13 @@ export default async function AuthedAdminLayout({
           </div>
           <div className="flex items-center gap-3">
             {user.seller ? (
-              <span className="hidden max-w-[180px] truncate font-mono text-[11px] uppercase tracking-[0.18em] text-ink-3 sm:inline">
+              <Link
+                href="/admin/settings"
+                className="hidden max-w-[180px] truncate font-mono text-[11px] uppercase tracking-[0.18em] text-ink-3 transition hover:text-ink sm:inline"
+                title="Edit shop"
+              >
                 {user.seller.display_name}
-              </span>
+              </Link>
             ) : null}
             <form action={signOut} className="relative z-10">
               <button

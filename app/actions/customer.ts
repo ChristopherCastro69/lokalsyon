@@ -2,6 +2,7 @@
 
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
+import { resolveSellerBySlug } from "@/lib/seller-resolve";
 import { getClientIp, rateLimit } from "@/lib/rate-limit";
 
 const SubmitSchema = z.object({
@@ -65,18 +66,14 @@ export async function submitLocation(
     return { ok: false, message: "Please fix the highlighted fields.", fieldErrors };
   }
 
-  const supabase = await createClient();
-
-  // Resolve seller by slug (anon SELECT is allowed).
-  const { data: seller, error: sellerError } = await supabase
-    .from("sellers")
-    .select("id")
-    .eq("slug", slug)
-    .maybeSingle();
-
-  if (sellerError || !seller) {
+  // Resolve seller by slug — falls back to historical slug aliases so links
+  // shared under a previous name still update the correct seller's orders.
+  const seller = await resolveSellerBySlug(slug);
+  if (!seller) {
     return { ok: false, message: "This link isn't valid anymore." };
   }
+
+  const supabase = await createClient();
 
   // Update the specific order. RLS restricts anon UPDATE to:
   //   - rows where status = 'pending' (the seller can lock editing by marking delivered)
