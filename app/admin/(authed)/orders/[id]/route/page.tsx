@@ -20,7 +20,7 @@ export default async function OrderRoutePage({ params }: PageProps) {
   const { data: order } = await supabase
     .from("orders")
     .select(
-      "id, customer_name, product, items, total_amount, currency, order_type, scheduled_for, rental_end_at, phone, notes, lat, lng, photos",
+      "id, customer_name, product, items, total_amount, currency, order_type, scheduled_for, rental_end_at, phone, notes, lat, lng, photos, status",
     )
     .eq("id", id)
     .eq("seller_id", user.seller.id)
@@ -69,6 +69,7 @@ export default async function OrderRoutePage({ params }: PageProps) {
         phone={order.phone}
         notes={order.notes}
         photos={order.photos ?? []}
+        status={order.status ?? "pending"}
       />
     </div>
   );

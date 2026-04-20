@@ -51,6 +51,10 @@ export default function OrdersView({
   const [pending, startTransition] = useTransition();
   const [myLocation, setMyLocation] = useState<LatLng | null>(null);
   const [locating, setLocating] = useState(false);
+  const [confirmingId, setConfirmingId] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<{ id: string; message: string } | null>(
+    null,
+  );
   const [optimized, setOptimized] = useState<OptimizedOrderStop[] | null>(null);
   const [optimizeSummary, setOptimizeSummary] = useState<{
     distanceKm: number;
@@ -97,6 +101,28 @@ export default function OrdersView({
       supabase.removeChannel(channel);
     };
   }, [sellerId]);
+
+  const handleConfirmDelete = useCallback(
+    async (order: Order) => {
+      setDeleteError(null);
+      setConfirmingId(null);
+      // Optimistic removal — snapshot for rollback on failure.
+      let snapshot: Order[] = [];
+      setOrders((current) => {
+        snapshot = current;
+        return current.filter((o) => o.id !== order.id);
+      });
+      const result = await deleteOrder(order.id);
+      if (!result.ok) {
+        setOrders(snapshot);
+        setDeleteError({
+          id: order.id,
+          message: result.message ?? "Couldn't delete that order.",
+        });
+      }
+    },
+    [],
+  );
 
   const requestMyLocation = useCallback(() => {
     if (!navigator.geolocation) return;
@@ -337,6 +363,12 @@ export default function OrdersView({
                 myLocation={myLocation}
                 stopNumber={numbered}
                 disabled={pending}
+                isConfirmingDelete={confirmingId === order.id}
+                deleteErrorMessage={
+                  deleteError && deleteError.id === order.id
+                    ? deleteError.message
+                    : null
+                }
                 onMarkDelivered={() =>
                   startTransition(async () => {
                     await markDelivered(order.id);
@@ -347,13 +379,12 @@ export default function OrdersView({
                     await markPending(order.id);
                   })
                 }
-                onDelete={() =>
-                  startTransition(async () => {
-                    if (confirm(`Delete order for ${order.customer_name}?`)) {
-                      await deleteOrder(order.id);
-                    }
-                  })
-                }
+                onRequestDelete={() => {
+                  setDeleteError(null);
+                  setConfirmingId(order.id);
+                }}
+                onCancelDelete={() => setConfirmingId(null)}
+                onConfirmDelete={() => handleConfirmDelete(order)}
               />
             );
           })}
@@ -401,9 +432,13 @@ function OrderRow({
   myLocation,
   stopNumber,
   disabled,
+  isConfirmingDelete,
+  deleteErrorMessage,
   onMarkDelivered,
   onMarkPending,
-  onDelete,
+  onRequestDelete,
+  onCancelDelete,
+  onConfirmDelete,
 }: {
   order: Order;
   sellerSlug: string;
@@ -411,15 +446,26 @@ function OrderRow({
   myLocation: LatLng | null;
   stopNumber: number | null;
   disabled: boolean;
+  isConfirmingDelete: boolean;
+  deleteErrorMessage: string | null;
   onMarkDelivered: () => void;
   onMarkPending: () => void;
-  onDelete: () => void;
+  onRequestDelete: () => void;
+  onCancelDelete: () => void;
+  onConfirmDelete: () => void;
 }) {
   const hasLocation = order.lat != null && order.lng != null;
   const customerLink = `${appUrl}/s/${sellerSlug}/p/${order.code}`;
 
   return (
-    <li className="flex flex-col gap-3 rounded-card border border-hair bg-surface p-4 sm:p-5">
+    <li
+      className={
+        "flex flex-col gap-3 rounded-card border bg-surface p-4 transition-colors sm:p-5 " +
+        (isConfirmingDelete
+          ? "border-brick/50 ring-1 ring-brick/30"
+          : "border-hair")
+      }
+    >
       {/* Row 1: name + status + stop number + total */}
       <div className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 items-start gap-3">
@@ -447,11 +493,11 @@ function OrderRow({
           ) : null}
           <button
             type="button"
-            onClick={onDelete}
-            disabled={disabled}
+            onClick={onRequestDelete}
+            disabled={disabled || isConfirmingDelete}
             aria-label="Delete order"
             title="Delete order"
-            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-ink-3 transition active:bg-paper-deep active:text-brick hover:bg-paper-deep hover:text-brick sm:h-8 sm:w-8"
+            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-ink-3 transition active:bg-paper-deep active:text-brick hover:bg-paper-deep hover:text-brick disabled:opacity-40 sm:h-8 sm:w-8"
           >
             ✕
           </button>
@@ -487,6 +533,44 @@ function OrderRow({
 
       {order.photos && order.photos.length > 0 ? (
         <PhotoStrip photos={order.photos} size={40} />
+      ) : null}
+
+      {deleteErrorMessage ? (
+        <p
+          role="alert"
+          className="rounded-field border border-brick/40 bg-brick-soft px-3 py-2 text-sm text-brick"
+        >
+          {deleteErrorMessage}
+        </p>
+      ) : null}
+
+      {isConfirmingDelete ? (
+        <div className="flex flex-col gap-2 rounded-field border border-brick/40 bg-brick-soft px-3 py-3 sm:flex-row sm:items-center sm:gap-3">
+          <div className="flex flex-1 flex-col gap-0.5">
+            <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-brick">
+              Delete this order?
+            </span>
+            <span className="text-sm text-ink-2">
+              {order.customer_name} · {order.code}. This can&rsquo;t be undone.
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={onCancelDelete}
+              className="inline-flex h-9 items-center rounded-pill border border-hair bg-surface px-3 font-mono text-[11px] uppercase tracking-[0.15em] text-ink-2 hover:bg-paper-deep"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={onConfirmDelete}
+              className="inline-flex h-9 items-center gap-1 rounded-pill bg-brick px-3.5 font-mono text-[11px] uppercase tracking-[0.15em] text-paper hover:bg-brick/90"
+            >
+              Delete
+            </button>
+          </div>
+        </div>
       ) : null}
 
       {/* Row 3: actions */}

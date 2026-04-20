@@ -2,12 +2,14 @@
 
 import { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import LeafletMap, { type LatLng } from "@/components/LeafletMapLazy";
 import CoordLabel from "@/components/brand/CoordLabel";
 import ItemsReceipt from "@/components/ItemsReceipt";
 import PhotoStrip from "@/components/PhotoStrip";
 import type { OrderItem, OrderType } from "@/lib/types";
 import { previewRouteToOrder } from "@/app/actions/routing";
+import { markDelivered, markPending } from "@/app/actions/orders";
 import { googleMapsLink, wazeLink } from "@/lib/navigation";
 
 type Props = {
@@ -24,6 +26,7 @@ type Props = {
   phone: string | null;
   notes: string | null;
   photos: string[];
+  status: "pending" | "delivered";
 };
 
 const PIN_DEST = "#c84a24"; // terracotta — customer
@@ -43,7 +46,32 @@ export default function RoutePreview({
   phone,
   notes,
   photos,
+  status,
 }: Props) {
+  const router = useRouter();
+  const [localStatus, setLocalStatus] = useState<"pending" | "delivered">(status);
+  const [statusError, setStatusError] = useState<string | null>(null);
+  const [statusPending, startStatusTransition] = useTransition();
+
+  function toggleDelivered() {
+    setStatusError(null);
+    const previous = localStatus;
+    const next = previous === "pending" ? "delivered" : "pending";
+    setLocalStatus(next); // optimistic
+    startStatusTransition(async () => {
+      const result =
+        next === "delivered"
+          ? await markDelivered(orderId)
+          : await markPending(orderId);
+      if (!result.ok) {
+        setLocalStatus(previous);
+        setStatusError(result.message ?? "Couldn't update status.");
+        return;
+      }
+      router.refresh();
+    });
+  }
+
   const schedule =
     orderType === "rental" && scheduledFor && rentalEndAt
       ? ({ kind: "rental", scheduledFor, rentalEndAt } as const)
@@ -184,6 +212,46 @@ export default function RoutePreview({
         >
           ← Back to orders
         </Link>
+      </div>
+
+      {/* Status toggle — once you've reached the customer, mark it done here */}
+      <div className="flex flex-col gap-2">
+        {localStatus === "pending" ? (
+          <button
+            type="button"
+            onClick={toggleDelivered}
+            disabled={statusPending}
+            className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-pill bg-mangrove px-6 text-sm font-medium text-paper transition active:bg-mangrove-2 hover:bg-mangrove-2 disabled:opacity-60 sm:w-auto sm:self-start"
+          >
+            {statusPending ? "Marking…" : "Mark as delivered"}
+            <span aria-hidden className="font-mono text-base">
+              ✓
+            </span>
+          </button>
+        ) : (
+          <div className="flex flex-wrap items-center gap-3 rounded-card border border-mangrove/30 bg-mangrove-soft/40 px-4 py-3">
+            <span className="inline-flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.18em] text-mangrove-2">
+              <span className="inline-block h-1.5 w-1.5 rounded-full bg-mangrove" />
+              Delivered
+            </span>
+            <button
+              type="button"
+              onClick={toggleDelivered}
+              disabled={statusPending}
+              className="ml-auto font-mono text-[11px] uppercase tracking-[0.18em] text-ink-3 hover:text-ink disabled:opacity-50"
+            >
+              {statusPending ? "Undoing…" : "Undo"}
+            </button>
+          </div>
+        )}
+        {statusError ? (
+          <p
+            role="alert"
+            className="rounded-field border border-brick/40 bg-brick-soft px-3 py-2 text-sm text-brick"
+          >
+            {statusError}
+          </p>
+        ) : null}
       </div>
 
       {/* Details card */}
