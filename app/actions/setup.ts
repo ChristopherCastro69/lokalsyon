@@ -66,9 +66,19 @@ export async function createSeller(
   }
   const user = userData.user;
 
+  // Service-role client: RLS on sellers/seller_members restricts inserts to
+  // super-admins only; setup runs for any authed approved user, so we bypass
+  // here. The user's identity is verified above.
+  const service = createServiceClient();
+
   // Gate seller creation on an approved waitlist entry (or super-admin).
   // Defense-in-depth: if Supabase Auth public signup is ever re-enabled,
   // random accounts still can't spin up a seller workspace.
+  //
+  // We use the service-role client here because RLS on waitlist_signups
+  // restricts SELECT to super-admins — a regular approved user can't read
+  // their own row through the auth client. Safe: we only query by the
+  // email of the already-authenticated user and check one boolean field.
   const isSuperAdmin =
     (user.app_metadata as { role?: string } | null)?.role === "super_admin";
   if (!isSuperAdmin) {
@@ -76,7 +86,7 @@ export async function createSeller(
     if (!email) {
       return { ok: false, message: "Your account has no email on file." };
     }
-    const { data: entry } = await supabase
+    const { data: entry } = await service
       .from("waitlist_signups")
       .select("status")
       .eq("email", email)
@@ -89,11 +99,6 @@ export async function createSeller(
       };
     }
   }
-
-  // Service-role client: RLS on sellers/seller_members restricts inserts to
-  // super-admins only; setup runs for any authed approved user, so we bypass
-  // here. The user's identity is verified above.
-  const service = createServiceClient();
 
   // Race-safe unique slug: try baseSlug, then base-2, base-3 ... on unique violation.
   let sellerId: string | null = null;
